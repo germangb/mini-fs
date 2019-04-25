@@ -1,0 +1,13 @@
+[package]
+name = "mini-fs"
+version = "0.1.0"
+authors = ["german gomez <germangb42@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+[features]
+default = ["tar"]
+
+tar = []
+zip = []

@@ -6,24 +6,28 @@
 //! # Example
 //!
 //! ```
-//! use mini_fs::{merged, Local, MiniFs};
+//! use mini_fs::{merge, Local, MiniFs};
 //!
 //! let a = Local::new("/core/res");
 //! let b = Local::new("/user/res");
 //!
 //! // Merges data stores. b will have priority over a.
-//! let res = merged!(b, a);
+//! let res = merge!(b, a);
 //!
 //! let files = MiniFs::new().mount("/res", res);
 //! ```
 use std::collections::BTreeMap;
+use std::collections::LinkedList;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use err::Error;
 pub use file::File;
-use std::collections::linked_list::LinkedList;
+#[cfg(feature = "tar")]
+pub use tar::Tar;
+#[cfg(feature = "zip")]
+pub use zip::Zip;
 
 /// Error types.
 pub mod err;
@@ -70,6 +74,7 @@ impl Local {
 }
 
 /// In-memory data store.
+#[derive(Clone)]
 pub struct Ram {
     inner: BTreeMap<PathBuf, Vec<u8>>,
 }
@@ -179,36 +184,53 @@ impl Store for MiniFs {
 }
 
 /// Merged file stores.
-pub struct Merged<A, B>(pub A, pub B);
+pub struct Merge<A, B>(pub A, pub B);
 
-impl<A, B> Store for Merged<A, B>
+impl<A, B> Store for Merge<A, B>
 where
     A: Store,
     B: Store,
 {
+    #[inline]
     fn open(&self, path: &Path) -> Result<File> {
-        self.0.open(path).or_else(|_| self.1.open(path))
+        let a = &self.0;
+        let b = &self.1;
+        a.open(path).or_else(|_| b.open(path))
     }
 }
 
 /// Merge an arbitraty num of stores.
 ///
 /// ```
-/// # use mini_fs::{merged, Ram, Local, Merged, err::Error};
+/// # use mini_fs::{merge, Ram, Local, Merge, err::Error};
 /// # fn main() -> Result<(), Error> {
 /// let a = Local::new("/");
 /// let b = Ram::new();
 /// let c = Local::pwd()?;
 ///
-/// // Type is infered
-/// let merge: Merged<Local, Merged<Ram, Local>> = merged!(a, b, c);
+/// // Order of priority (from more to less): a > b > c
+/// let merge = merge!(a, b, c);
 /// # Ok(())
 /// # }
 /// ```
 #[macro_export]
-macro_rules! merged {
-    ($head:expr) => { $head };
-    ($head:expr, $($tail:tt),+) => { $crate::Merged($head, merged!($($tail),+)) };
+macro_rules! merge {
+    ($head:expr) => { $crate::Merge($head, $crate::Empty) };
+    ($head:expr, $($tail:expr),+) => { $crate::Merge($head, merge!($($tail),+)) };
+    () => { compile_error!("You must merge at least 1 store.") };
+}
+
+/// Store that always reports FileNotFound.
+#[derive(Clone, Copy)]
+#[doc(hidden)]
+pub struct Empty;
+
+#[doc(hidden)]
+impl Store for Empty {
+    #[inline(always)]
+    fn open(&self, path: &Path) -> Result<File> {
+        Err(Error::FileNotFound)
+    }
 }
 
 #[cfg(test)]

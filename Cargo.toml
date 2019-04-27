@@ -6,9 +6,10 @@ edition = "2018"
 
 [dependencies]
 tar_ = { package = "tar", version = "0.4.23", optional = true }
+flate2 = { version = "1.0.7", optional = true }
 
 [features]
 default = ["tar", "zip"]
 
-tar = ["tar_"]
+tar = ["tar_", "flate2"]
 zip = []

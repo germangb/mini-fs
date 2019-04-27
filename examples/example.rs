@@ -2,8 +2,7 @@ use std::io::Read;
 use std::path::Path;
 
 use mini_fs::err::Error;
-use mini_fs::tar::Tar;
-use mini_fs::{Local, MiniFs, Store};
+use mini_fs::{Local, MiniFs, Store, Tar};
 use std::fs::File;
 
 fn main() -> Result<(), Error> {
@@ -13,11 +12,13 @@ fn main() -> Result<(), Error> {
 
     fs.umount("/local");
 
+    let mut content = String::new();
     for _ in 0..2 {
-        let mut file = fs.open(Path::new("/tar/a.txt"))?;
-        let mut content = String::new();
+        content.clear();
 
+        let mut file = fs.open(Path::new("/tar/a.txt"))?;
         file.read_to_string(&mut content)?;
+
         println!("{}", content);
     }
 

@@ -1,30 +1,65 @@
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::fs;
-use std::io::{Cursor, Read};
+use std::io::{Cursor, ErrorKind, Read};
 use std::path::Path;
 
+use flate2::read::GzDecoder;
 use tar_::Archive;
 
 use crate::err::Error;
 use crate::file::File;
 use crate::{Result, Store};
 
+/// Tar archive store.
+///
+/// ```should_panic
+/// use mini_fs::tar::Tar;
+/// # use mini_fs::err::Error;
+///
+/// # fn main() -> Result<(), Error> {
+/// let tar = Tar::open("example.tar")?;
+///
+/// // gzip files also supported:
+/// let targz = Tar::open("example.tar.gz")?;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone)]
 pub struct Tar {
-    inner: Vec<u8>,
+    gzip: Cell<bool>,
+    bytes: Vec<u8>,
 }
 
-impl Store for Tar {
-    fn open(&self, path: &Path) -> Result<File> {
-        let mut archive = Archive::new(Cursor::new(&self.inner));
+impl Tar {
+    fn open_read<R: Read>(&self, path: &Path, reader: R) -> Result<File> {
+        let mut archive = Archive::new(reader);
         for entry in archive.entries()? {
             let mut entry = entry?;
             if path == entry.path()? {
                 let mut data = Vec::new();
-                let _ = entry.read_to_end(&mut data)?;
+                entry.read_to_end(&mut data)?;
                 return Ok(File::from_ram(data));
             }
         }
         Err(Error::FileNotFound)
+    }
+}
+
+impl Store for Tar {
+    fn open(&self, path: &Path) -> Result<File> {
+        if self.gzip.get() {
+            self.open_read(path, GzDecoder::new(Cursor::new(&self.bytes)))
+        } else {
+            match self.open_read(path, Cursor::new(&self.bytes)) {
+                Err(Error::FileNotFound) => Err(Error::FileNotFound),
+                Err(_) => {
+                    self.gzip.set(true);
+                    self.open(path)
+                }
+                Ok(entry) => Ok(entry),
+            }
+        }
     }
 }
 
@@ -33,9 +68,16 @@ impl Tar {
         Self::from_reader(fs::File::open(path)?)
     }
 
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes,
+            gzip: Cell::new(false),
+        }
+    }
+
     pub fn from_reader<R: Read>(mut read: R) -> Result<Self> {
         let mut inner = Vec::new();
         read.read_to_end(&mut inner)?;
-        Ok(Self { inner })
+        Ok(Self::from_bytes(inner))
     }
 }

@@ -28,7 +28,7 @@ use crate::{Result, Store};
 #[derive(Clone)]
 pub struct Tar {
     gzip: Cell<bool>,
-    bytes: Vec<u8>,
+    bytes: Box<[u8]>,
 }
 
 impl Tar {
@@ -68,9 +68,9 @@ impl Tar {
         Self::from_reader(fs::File::open(path)?)
     }
 
-    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+    pub fn new<B: Into<Box<[u8]>>>(bytes: B) -> Self {
         Self {
-            bytes,
+            bytes: bytes.into(),
             gzip: Cell::new(false),
         }
     }
@@ -78,6 +78,6 @@ impl Tar {
     pub fn from_reader<R: Read>(mut read: R) -> Result<Self> {
         let mut inner = Vec::new();
         read.read_to_end(&mut inner)?;
-        Ok(Self::from_bytes(inner))
+        Ok(Self::new(inner))
     }
 }

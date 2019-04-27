@@ -128,7 +128,7 @@ impl MiniFs {
     pub fn mount<P, F>(mut self, path: P, store: F) -> Self
     where
         P: Into<PathBuf>,
-        F: Store + 'static,
+        F: Store + Send + 'static,
     {
         let path = path.into();
         let store = Box::new(store);
@@ -184,6 +184,8 @@ impl Store for MiniFs {
 }
 
 /// Merged file stores.
+///
+/// To merge more than two stores, see the [merge] macro.
 pub struct Merge<A, B>(pub A, pub B);
 
 impl<A, B> Store for Merge<A, B>

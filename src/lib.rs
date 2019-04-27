@@ -181,17 +181,16 @@ impl Store for MiniFs {
 }
 
 macro_rules! tuples {
-    ($head:ident) => {};
-    ($head:ident, $($tail:ident),+) => {
-        tuples!($($tail),+);
-        impl<$head, $($tail),+> Store for ($head, $($tail),+)
+    ($head:ident,) => {};
+    ($head:ident, $($tail:ident,)+) => {
+        impl<$head, $($tail,)+> Store for ($head, $($tail,)+)
         where
             $head: Store,
             $($tail: Store,)+
         {
             #[allow(non_snake_case)]
             fn open(&self, path: &Path) -> Result<File> {
-                let ($head, $($tail),+) = self;
+                let ($head, $($tail,)+) = self;
                 match $head.open(path) {
                     Ok(file) => return Ok(file),
                     Err(Error::FileNotFound) => {}
@@ -207,11 +206,12 @@ macro_rules! tuples {
                 Err(Error::FileNotFound)
             }
         }
+        tuples!($($tail,)+);
     };
 }
 
 // implement for tuples of up to size 8
-tuples! { A, B, C, D, E, F, G, H }
+tuples! { A, B, C, D, E, F, G, H, }
 
 #[cfg(test)]
 mod tests {

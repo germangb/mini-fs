@@ -2,6 +2,13 @@
 name = "mini-fs"
 version = "0.1.0"
 authors = ["german gomez <germangb42@gmail.com>"]
+description = "Application filesystem to simplify reading files from both the native filesystem and file archives (tar, tar.gz & zip)."
+repository = "https://github.com/germangb/mini-fs"
+readme = "README.md"
+keywords = ["filesystem", "virtual", "mini", "tar", "zip"]
+categories = ["filesystem"]
+license = "MIT"
+exclude = [".pages/*"]
 edition = "2018"
 
 [dependencies]

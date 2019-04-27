@@ -3,18 +3,15 @@ use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum Error {
-    FileNotFound(PathBuf),
-    Mount(MountError),
+    FileNotFound,
     Io(io::Error),
 }
 
-#[derive(Debug)]
-pub enum MountError {
-    AlreadyMounted(PathBuf),
-}
-
 impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Error::Io(e)
+    fn from(err: io::Error) -> Self {
+        match err.kind() {
+            io::ErrorKind::NotFound => Error::FileNotFound,
+            _ => Error::Io(err),
+        }
     }
 }

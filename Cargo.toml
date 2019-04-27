@@ -5,9 +5,10 @@ authors = ["german gomez <germangb42@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+tar_ = { package = "tar", version = "0.4.23", optional = true }
 
 [features]
-default = ["tar"]
+default = ["tar", "zip"]
 
-tar = []
+tar = ["tar_"]
 zip = []

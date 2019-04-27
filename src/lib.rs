@@ -6,13 +6,13 @@
 //! # Example
 //!
 //! ```
-//! use mini_fs::{merge, Local, MiniFs};
+//! use mini_fs::{Local, MiniFs};
 //!
 //! let a = Local::new("/core/res");
 //! let b = Local::new("/user/res");
 //!
-//! // Merges data stores. b will have priority over a.
-//! let res = merge!(b, a);
+//! // You can use tuples to merge stores.
+//! let res = (b, a);
 //!
 //! let files = MiniFs::new().mount("/res", res);
 //! ```
@@ -22,7 +22,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use err::Error;
+use err::{Error, Result};
 pub use file::File;
 #[cfg(feature = "tar")]
 pub use tar::Tar;
@@ -42,9 +42,6 @@ pub mod tar;
 /// *To use this module you must enable the "zip" feature.*
 #[cfg(feature = "zip")]
 pub mod zip;
-
-/// Custom result type.
-pub type Result<T> = std::result::Result<T, Error>;
 
 /// Generic filesystem abstraction.
 pub trait Store {
@@ -183,57 +180,38 @@ impl Store for MiniFs {
     }
 }
 
-/// Merged file stores.
-///
-/// To merge more than two stores, see the [merge] macro.
-pub struct Merge<A, B>(pub A, pub B);
-
-impl<A, B> Store for Merge<A, B>
-where
-    A: Store,
-    B: Store,
-{
-    #[inline]
-    fn open(&self, path: &Path) -> Result<File> {
-        let a = &self.0;
-        let b = &self.1;
-        a.open(path).or_else(|_| b.open(path))
-    }
+macro_rules! tuples {
+    ($head:ident) => {};
+    ($head:ident, $($tail:ident),+) => {
+        tuples!($($tail),+);
+        impl<$head, $($tail),+> Store for ($head, $($tail),+)
+        where
+            $head: Store,
+            $($tail: Store,)+
+        {
+            #[allow(non_snake_case)]
+            fn open(&self, path: &Path) -> Result<File> {
+                let ($head, $($tail),+) = self;
+                match $head.open(path) {
+                    Ok(file) => return Ok(file),
+                    Err(Error::FileNotFound) => {}
+                    Err(err) => return Err(err),
+                }
+                $(
+                match $tail.open(path) {
+                    Ok(file) => return Ok(file),
+                    Err(Error::FileNotFound) => {}
+                    Err(err) => return Err(err),
+                }
+                )+
+                Err(Error::FileNotFound)
+            }
+        }
+    };
 }
 
-/// Merge an arbitraty num of stores.
-///
-/// ```
-/// # use mini_fs::{merge, Ram, Local, Merge, err::Error};
-/// # fn main() -> Result<(), Error> {
-/// let a = Local::new("/");
-/// let b = Ram::new();
-/// let c = Local::pwd()?;
-///
-/// // Order of priority (from more to less): a > b > c
-/// let merge = merge!(a, b, c);
-/// # Ok(())
-/// # }
-/// ```
-#[macro_export]
-macro_rules! merge {
-    ($head:expr) => { $crate::Merge($head, $crate::Empty) };
-    ($head:expr, $($tail:expr),+) => { $crate::Merge($head, merge!($($tail),+)) };
-    () => { compile_error!("You must merge at least 1 store.") };
-}
-
-/// Store that always reports FileNotFound.
-#[derive(Clone, Copy)]
-#[doc(hidden)]
-pub struct Empty;
-
-#[doc(hidden)]
-impl Store for Empty {
-    #[inline(always)]
-    fn open(&self, path: &Path) -> Result<File> {
-        Err(Error::FileNotFound)
-    }
-}
+// implement for tuples of up to size 8
+tuples! { A, B, C, D, E, F, G, H }
 
 #[cfg(test)]
 mod tests {

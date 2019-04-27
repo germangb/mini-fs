@@ -7,9 +7,9 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use tar_::Archive;
 
-use crate::err::Error;
+use crate::err::{Error, Result};
 use crate::file::File;
-use crate::{Result, Store};
+use crate::Store;
 
 /// Tar archive store.
 ///

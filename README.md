@@ -9,15 +9,14 @@ Supports reading files from the local filesystem and tar & zip archives.
 
 ```rust
 use std::path::Path;
-use mini_fs::{Store, Local, Tar, merge};
+use mini_fs::{Store, Local, Tar};
 
 let tar = Tar::open("archive.tar")?;
 let local = Local::pwd()?;
 
 // Merge the two filesystems into one.
-let merge = merge!(tar, local);
-
-let fs = MiniFs::new().mount("/data", merge);
+// The files will be readable from "/data" path
+let fs = MiniFs::new().mount("/data", (tar, local));
 
 let file = fs.open(Path::new("/data/hello.txt"))?;
 ```

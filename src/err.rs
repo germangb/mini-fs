@@ -3,6 +3,10 @@ use std::io;
 #[cfg(feature = "zip")]
 use zip_::result::ZipError;
 
+/// Custom result type.
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Error types used
 #[derive(Debug)]
 pub enum Error {
     FileNotFound,

@@ -4,8 +4,8 @@ use std::path::Path;
 
 use zip_::ZipArchive;
 
-use crate::err::Error;
-use crate::{File, Result, Store};
+use crate::err::{Error, Result};
+use crate::{File, Store};
 
 /// Zip archive store.
 pub struct Zip {

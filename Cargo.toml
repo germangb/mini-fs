@@ -1,6 +1,6 @@
 [package]
 name = "mini-fs"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["german gomez <germangb42@gmail.com>"]
 description = "Application filesystem to simplify reading files from both the native filesystem and file archives (tar, tar.gz & zip)."
 repository = "https://github.com/germangb/mini-fs"

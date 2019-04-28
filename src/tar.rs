@@ -1,7 +1,6 @@
 use std::cell::Cell;
-use std::cell::RefCell;
 use std::fs;
-use std::io::{Cursor, ErrorKind, Read};
+use std::io::{Cursor, Read};
 use std::path::Path;
 
 use flate2::read::GzDecoder;

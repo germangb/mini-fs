@@ -37,7 +37,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use err::{Error, Result};
-pub use file::{File, FileMut};
+pub use file::File;
 #[cfg(feature = "tar")]
 pub use tar::Tar;
 #[cfg(feature = "zip")]
@@ -63,7 +63,8 @@ pub trait Store {
     fn open(&self, path: &Path) -> Result<File>;
 
     /// Opens a file in write-only mode.
-    fn open_write(&mut self, path: &Path) -> Result<FileMut> {
+    #[allow(unused_variables)]
+    fn open_write(&self, path: &Path) -> Result<File> {
         Err(Error::Io(file::write_support_err()))
     }
 }
@@ -79,7 +80,7 @@ impl Store for Local {
         Ok(File::from_fs(file))
     }
 
-    fn open_write(&mut self, path: &Path) -> Result<FileMut> {
+    fn open_write(&self, path: &Path) -> Result<File> {
         let file = fs::OpenOptions::new()
             .write(true)
             // FileMut doesn't impl Read
@@ -87,7 +88,7 @@ impl Store for Local {
             .create(false)
             .open(path)?;
 
-        Ok(FileMut::from_fs(file))
+        Ok(File::from_fs(file))
     }
 }
 

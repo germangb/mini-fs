@@ -5,9 +5,9 @@
 [![docs.rs docs](https://docs.rs/mini-fs/badge.svg?style=flat-square)](https://docs.rs/mini-fs)
 [![Master docs](https://img.shields.io/badge/docs-master-blue.svg?style=flat-square)](https://germangb.github.io/mini-fs/)
 
-Stupid simple (read only) filesystem abstraction.
+Filesystem abstraction.
 
-Supports reading files from the local filesystem, as well as tar & zip archives.
+Supports opening files from the local filesystem, as well as tar & zip archives.
 
 ```toml
 [dependencies]
@@ -33,7 +33,7 @@ let mut fs = MiniFs::new()
 let file = fs.open(Path::new("/data/example.gif"))?;
 
 // Unmount it when you're done (drops the file system)
-fs.unmount("/data");
+fs.umount("/data");
 ```
 
 ## Merging

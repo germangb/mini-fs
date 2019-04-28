@@ -1,20 +1,34 @@
-//! Stupid simple filesystem-like storage.
+//! **mini-fs** is a filesystem abstraction layer.
 //!
-//! Supports reading from the local filesystem and from in-memory tar and zip
-//! archives.
+//! Currently supported features include:
 //!
-//! # Example
+//! - Access to the local (native) filesystem.
+//! - In-memory filesystems.
+//! - Tar, tar.gz, and Zip archives.
+//! - Logically merging filesystems (useful for overriding some files)
 //!
-//! ```
-//! use mini_fs::{Local, MiniFs};
+//! ## Merging example
 //!
-//! let a = Local::new("/core/res");
-//! let b = Local::new("/user/res");
+//! This feature is useful when you want to override some files from another
+//! location:
 //!
-//! // You can use tuples to merge stores.
-//! let res = (b, a);
+//! ```no_run
+//! # fn main() -> Result<(), mini_fs::err::Error> {
+//! use std::path::Path;
+//! # use mini_fs::{Store, Local, Tar, MiniFs, err::Error};
+//! let a = Local::new("data/");
+//! // |- example.txt
 //!
-//! let files = MiniFs::new().mount("/res", res);
+//! let b = Tar::open("archive.tar.gz")?;
+//! // |- example.txt
+//! // |- hello.txt
+//!
+//! let files = MiniFs::new().mount("/files", (a, b));
+//!
+//! assert!(files.open(Path::new("/files/example.txt")).is_ok()); // this "example.txt" is from "a"
+//! assert!(files.open(Path::new("/files/hello.txt")).is_ok());
+//! # Ok(())
+//! # }
 //! ```
 use std::collections::BTreeMap;
 use std::collections::LinkedList;
@@ -23,7 +37,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use err::{Error, Result};
-pub use file::File;
+pub use file::{File, FileMut};
 #[cfg(feature = "tar")]
 pub use tar::Tar;
 #[cfg(feature = "zip")]
@@ -45,10 +59,16 @@ pub mod zip;
 
 /// Generic filesystem abstraction.
 pub trait Store {
+    /// Opens file in read-only mode.
     fn open(&self, path: &Path) -> Result<File>;
+
+    /// Opens a file in write-only mode.
+    fn open_write(&mut self, path: &Path) -> Result<FileMut> {
+        Err(Error::Io(file::write_support_err()))
+    }
 }
 
-/// Local filesystem store.
+/// Local (native) filesystem.
 pub struct Local {
     root: PathBuf,
 }
@@ -58,6 +78,17 @@ impl Store for Local {
         let file = fs::File::open(self.root.join(path))?;
         Ok(File::from_fs(file))
     }
+
+    fn open_write(&mut self, path: &Path) -> Result<FileMut> {
+        let file = fs::OpenOptions::new()
+            .write(true)
+            // FileMut doesn't impl Read
+            .read(false)
+            .create(false)
+            .open(path)?;
+
+        Ok(FileMut::from_fs(file))
+    }
 }
 
 impl Local {
@@ -65,12 +96,13 @@ impl Local {
         Self { root: root.into() }
     }
 
+    /// Point to the current working directory.
     pub fn pwd() -> Result<Self> {
         Ok(Self::new(env::current_dir()?))
     }
 }
 
-/// In-memory data store.
+/// In-memory file store.
 #[derive(Clone)]
 pub struct Ram {
     inner: BTreeMap<PathBuf, Vec<u8>>,
@@ -110,7 +142,7 @@ struct Mount {
     store: Box<dyn Store>,
 }
 
-/// Filesystem-like data storage.
+/// Virtual filesystem.
 pub struct MiniFs {
     inner: LinkedList<Mount>,
 }

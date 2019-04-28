@@ -1,5 +1,6 @@
 use std::io;
 
+use failure::Fail;
 #[cfg(feature = "zip")]
 use zip_::result::ZipError;
 
@@ -7,15 +8,20 @@ use zip_::result::ZipError;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Error types used
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 pub enum Error {
+    #[fail(display = "File not found.")]
     FileNotFound,
+    #[fail(display = "IO error: {}", 0)]
     Io(io::Error),
     /// Utf-8 conversion error,
+    #[fail(display = "UTF8 conversion error.")]
     Utf8,
     #[cfg(feature = "zip")]
+    #[fail(display = "Unsupported Zip compression algorithm.")]
     UnsupportedZip,
     #[cfg(feature = "zip")]
+    #[fail(display = "File is likely not a Zip archive.")]
     InvalidZip,
 }
 

@@ -43,7 +43,7 @@ pub use tar::Tar;
 #[cfg(feature = "zip")]
 pub use zip::Zip;
 
-/// Error types.
+/// Error and result types.
 pub mod err;
 mod file;
 /// Storage from a tarball.

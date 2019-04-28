@@ -1,44 +1,57 @@
 # mini-fs
 
-[![Build Status](https://travis-ci.org/germangb/mini-fs.svg?branch=master)](https://travis-ci.org/germangb/mini-fs)
+[![Cargo package](https://img.shields.io/crates/v/mini-fs.svg?style=flat-square)](https://crates.io/crates/mini-fs)
+[![Build Status](https://img.shields.io/travis/germangb/mini-fs/master.svg?style=flat-square)](https://travis-ci.org/germangb/mini-fs)
+[![docs.rs docs](https://docs.rs/mini-fs/badge.svg?style=flat-square)](https://docs.rs/mini-fs)
 [![Master docs](https://img.shields.io/badge/docs-master-blue.svg?style=flat-square)](https://germangb.github.io/mini-fs/)
 
 Stupid simple (read only) filesystem abstraction.
 
 Supports reading files from the local filesystem, as well as tar & zip archives.
 
+```toml
+[dependencies]
+mini-fs = "0.1"
+```
+
+An example showcasing the API:
+
 ```rust
 use std::path::Path;
-use mini_fs::{Store, Local, Tar};
+use mini_fs::{Store, Local, Tar, MiniFs};
 
-// Declare a file system.
-let local = Local::pwd().unwrap();
+// Declare some file systems.
+let local = Local::pwd()?;
+let tar = Tar::open("archive.tar.gz")?;
 
-// Mount it.
-let mut fs = MiniFs::new().mount("/data", local);
+// Mount them.
+let mut fs = MiniFs::new()
+    .mount("/data", local)
+    .mount("/archived", tar);
 
-// Read files.
-let file = fs.open(Path::new("/data/example.gif")).unwrap();
+// To open (read) files:
+let file = fs.open(Path::new("/data/example.gif"))?;
 
-// Unmount it when you're done (drop the file system)
-fs.unmount("/data").unwrap();
+// Unmount it when you're done (drops the file system)
+fs.unmount("/data");
 ```
 
 ## Merging
 
-You can merge multiple file systems so they share the same mounting point using a tuple:
+You can merge multiple file systems so they share the same mount point using a tuple.
 
 ```rust
 let a = Local::new("data/");
-// - example.txt
+// |- example.txt
 
 let b = Tar::open("archive.tar.gz")?;
-// - hello.txt
+// |- example.txt
+// |- hello.txt
 
 let files = MiniFs::new().mount("/files", (a, b));
 
-assert!(files.open("/files/example.txt").is_ok());
-assert!(files.open("/files/hello.txt").is_ok());
+assert!(files.open(Path::new("/files/example.txt")).is_ok()); // this "example.txt" is from "a"
+assert!(files.open(Path::new("/files/hello.txt")).is_ok());
 ```
 
 Note that if you tried to first mount `a`, followed by `b` on the same mount point, the first one would be shadowed by `b`.

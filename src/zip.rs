@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::fs;
-use std::io::{Cursor, Read};
+use std::io::{Read, Seek, SeekFrom};
+use std::ops::DerefMut;
 use std::path::Path;
 
 use zip_::ZipArchive;
@@ -8,31 +10,35 @@ use crate::err::{Error, Result};
 use crate::{File, Store};
 
 /// Zip archive store.
-pub struct Zip {
-    bytes: Box<[u8]>,
+pub struct Zip<T: Read + Seek> {
+    inner: RefCell<T>,
 }
 
-impl Zip {
+impl Zip<fs::File> {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Self::from_reader(fs::File::open(path)?)
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(false)
+            .create(false)
+            .open(path)?;
+        Ok(Self::new(file))
     }
+}
 
-    pub fn from_reader<R: Read>(mut read: R) -> Result<Self> {
-        let mut inner = Vec::new();
-        read.read_to_end(&mut inner)?;
-        Ok(Self::new(inner))
-    }
-
-    pub fn new<B: Into<Box<[u8]>>>(bytes: B) -> Self {
+impl<T: Read + Seek> Zip<T> {
+    pub fn new(inner: T) -> Self {
         Self {
-            bytes: bytes.into(),
+            inner: RefCell::new(inner),
         }
     }
 }
 
-impl Store for Zip {
+impl<T: Read + Seek> Store for Zip<T> {
     fn open(&self, path: &Path) -> Result<File> {
-        let mut archive = ZipArchive::new(Cursor::new(&self.bytes))?;
+        let mut file = self.inner.borrow_mut();
+        file.seek(SeekFrom::Start(0))?;
+
+        let mut archive = ZipArchive::new(file.deref_mut())?;
         let name = path.to_str().ok_or(Error::Utf8)?;
         let mut file = archive.by_name(name)?;
 

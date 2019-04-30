@@ -39,7 +39,7 @@ use std::path::{Path, PathBuf};
 use err::{Error, Result};
 pub use file::File;
 #[cfg(feature = "tar")]
-pub use tar::{BigTar, Tar};
+pub use tar::Tar;
 #[cfg(feature = "zip")]
 pub use zip::Zip;
 

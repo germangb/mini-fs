@@ -51,6 +51,9 @@ mod file;
 /// *To use this module you must enable the "tar" feature.*
 #[cfg(feature = "tar")]
 pub mod tar;
+/// v2 api work in progress.
+#[cfg(feature = "point_two")]
+pub mod v2;
 /// Storage from a Zip file.
 ///
 /// *To use this module you must enable the "zip" feature.*

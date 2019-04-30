@@ -22,3 +22,6 @@ default = ["tar", "zip"]
 
 tar = ["tar_", "flate2"]
 zip = ["zip_"]
+
+# version 0.2 of this crate (for development purposes)
+point_two = []

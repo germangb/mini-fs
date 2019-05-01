@@ -1,8 +1,11 @@
-use std::io::Read;
+#![allow(unused_variables)]
+
 use std::path::Path;
 
-use mini_fs::v2::file::File;
+#[cfg(feature = "point_two")]
 use mini_fs::v2::{Local, MiniFs};
+#[cfg(not(feature = "point_two"))]
+use mini_fs::{Local, MiniFs};
 
 fn main() {
     let pwd = Local::pwd().unwrap();

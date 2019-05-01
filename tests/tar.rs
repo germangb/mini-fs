@@ -45,8 +45,8 @@ fn tar_gz() {
 #[test]
 #[cfg(all(feature = "tar", feature = "point_two"))]
 fn tar_v2() {
-    use mini_fs::v2::store::Store;
-    use mini_fs::v2::tar::Tar;
+    use mini_fs::v2::Store;
+    use mini_fs::v2::Tar;
 
     let file = include_bytes!("archive.tar");
     let tar = Tar::new(Cursor::new(&file[..]));
@@ -68,8 +68,8 @@ fn tar_v2() {
 #[test]
 #[cfg(all(feature = "tar", feature = "point_two"))]
 fn tar_gz_v2() {
-    use mini_fs::v2::store::Store;
-    use mini_fs::v2::tar::Tar;
+    use mini_fs::v2::Store;
+    use mini_fs::v2::Tar;
 
     let file = include_bytes!("archive.tar.gz");
     let tar = Tar::new(Cursor::new(&file[..]));

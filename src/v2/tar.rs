@@ -7,7 +7,6 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use tar_::Archive;
 
-use crate::err::Error;
 use crate::v2::file;
 use crate::v2::Store;
 
@@ -30,7 +29,7 @@ impl<T: Read + Seek> Store for Tar<T> {
             match self.open_read(path, file.deref_mut()) {
                 Err(e) => {
                     if e.kind() == ErrorKind::NotFound {
-                        return Err(io::Error::new(ErrorKind::NotFound, "File not found."));
+                        return Err(io::Error::from(ErrorKind::NotFound));
                     } else {
                         self.gzip.set(true);
                         drop(file);
@@ -73,6 +72,6 @@ impl<T: Read + Seek> Tar<T> {
                 return Ok(file::File::from_ram(data));
             }
         }
-        Err(io::Error::new(ErrorKind::NotFound, "File not found."))
+        Err(io::Error::from(ErrorKind::NotFound))
     }
 }

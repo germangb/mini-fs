@@ -5,18 +5,21 @@ use std::io::{self, Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use store::Store;
+pub use file::File;
+pub use store::Store;
+pub use tar::Tar;
+pub use zip::Zip;
 
 /// Concrete file type
-pub mod file;
+mod file;
 /// File storage generic.
 pub mod store;
-/// Zip file storage.
-#[cfg(feature = "zip")]
-pub mod zip {}
 /// Tar file storage.
 #[cfg(feature = "tar")]
 pub mod tar;
+/// Zip file storage.
+#[cfg(feature = "zip")]
+pub mod zip;
 
 struct Mount<F> {
     path: PathBuf,
@@ -26,6 +29,25 @@ struct Mount<F> {
 /// Virtual filesystem.
 pub struct MiniFs<F> {
     mount: LinkedList<Mount<F>>,
+}
+
+impl<F> self::store::Store for MiniFs<F> {
+    type File = F;
+
+    fn open(&self, path: &Path) -> io::Result<F> {
+        let next = self.mount.iter().rev().find_map(|mnt| {
+            if let Ok(np) = path.strip_prefix(&mnt.path) {
+                Some((np, &mnt.store))
+            } else {
+                None
+            }
+        });
+        if let Some((np, store)) = next {
+            store.open(np)
+        } else {
+            Err(Error::from(ErrorKind::NotFound))
+        }
+    }
 }
 
 impl<F> MiniFs<F> {
@@ -98,7 +120,7 @@ impl Store for Ram {
     fn open(&self, path: &Path) -> io::Result<file::File> {
         match self.inner.get(path) {
             Some(file) => Ok(file::File::from_ram(Rc::clone(file))),
-            None => Err(Error::new(ErrorKind::NotFound, "File not found.")),
+            None => Err(Error::from(ErrorKind::NotFound)),
         }
     }
 }
@@ -130,38 +152,3 @@ impl Ram {
         self.inner.insert(path.into(), file.into());
     }
 }
-
-macro_rules! tuples {
-    ($head:ident,) => {};
-    ($head:ident, $($tail:ident,)+) => {
-        impl<$head, $($tail,)+> Store for ($head, $($tail,)+)
-        where
-            $head: Store,
-            $($tail: Store<File = $head::File>,)+
-        {
-            type File = $head::File;
-            #[allow(non_snake_case)]
-            fn open(&self, path: &Path) -> io::Result<Self::File> {
-                let ($head, $($tail,)+) = self;
-                match $head.open(path) {
-                    Ok(file) => return Ok(file),
-                    Err(ref err) if err.kind() == ErrorKind::NotFound => {},
-                    Err(err) => return Err(err),
-                }
-                $(
-                match $tail.open(path) {
-                    Ok(file) => return Ok(file),
-                    Err(ref err) if err.kind() == ErrorKind::NotFound => {},
-                    Err(err) => return Err(err),
-                }
-                )+
-
-                Err(Error::new(ErrorKind::NotFound, "File not found."))
-            }
-        }
-        tuples!($($tail,)+);
-    };
-}
-
-// implement for tuples of up to size 8
-tuples! { A, B, C, D, E, /*F,*/ G, H, I, }

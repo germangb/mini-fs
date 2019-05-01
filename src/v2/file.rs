@@ -14,16 +14,26 @@ enum FileInner {
 pub struct File(FileInner);
 
 impl File {
-    pub fn from_ram<T>(file: T) -> Self
-    where
-        T: Into<Rc<[u8]>>,
-    {
+    pub fn from_ram<T: Into<Rc<[u8]>>>(file: T) -> Self {
         File(FileInner::Ram(Cursor::new(file.into())))
     }
 
-    /// Wrap a File from the `std` lib
     pub fn from_std(file: fs::File) -> Self {
         File(FileInner::Fs(file))
+    }
+
+    pub fn into_std(self) -> Option<fs::File> {
+        match self.0 {
+            FileInner::Fs(file) => Some(file),
+            _ => None,
+        }
+    }
+
+    pub fn into_ram(self) -> Option<Rc<[u8]>> {
+        match self.0 {
+            FileInner::Ram(cursor) => Some(cursor.into_inner()),
+            _ => None,
+        }
     }
 }
 

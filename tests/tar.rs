@@ -1,9 +1,12 @@
-use mini_fs::{Store, Tar};
 use std::io::{Cursor, Read};
 use std::path::Path;
 
 #[test]
+#[cfg(feature = "tar")]
 fn tar() {
+    use mini_fs::tar::Tar;
+    use mini_fs::Store;
+
     let file = include_bytes!("archive.tar");
     let tar = Tar::new(Cursor::new(&file[..]));
     for _ in 0..4 {
@@ -19,7 +22,11 @@ fn tar() {
 }
 
 #[test]
+#[cfg(feature = "tar")]
 fn tar_gz() {
+    use mini_fs::tar::Tar;
+    use mini_fs::Store;
+
     let file = include_bytes!("archive.tar.gz");
     let tar = Tar::new(Cursor::new(&file[..]));
 
@@ -32,5 +39,51 @@ fn tar_gz() {
         b.read_to_string(&mut b_content).unwrap();
         assert_eq!("hello\n", a_content);
         assert_eq!("world!\n", b_content);
+    }
+}
+
+#[test]
+#[cfg(all(feature = "tar", feature = "point_two"))]
+fn tar_v2() {
+    use mini_fs::v2::store::Store;
+    use mini_fs::v2::tar::Tar;
+
+    let file = include_bytes!("archive.tar");
+    let tar = Tar::new(Cursor::new(&file[..]));
+    for _ in 0..4 {
+        let mut a = tar.open(Path::new("a.txt")).unwrap();
+        let mut b = tar.open(Path::new("b.txt")).unwrap();
+        let mut a_content = String::new();
+        let mut b_content = String::new();
+
+        a.read_to_string(&mut a_content).unwrap();
+        b.read_to_string(&mut b_content).unwrap();
+
+        assert_eq!("hello\n", a_content);
+        assert_eq!("world!\n", b_content);
+        assert!(tar.open(Path::new("nope")).is_err());
+    }
+}
+
+#[test]
+#[cfg(all(feature = "tar", feature = "point_two"))]
+fn tar_gz_v2() {
+    use mini_fs::v2::store::Store;
+    use mini_fs::v2::tar::Tar;
+
+    let file = include_bytes!("archive.tar.gz");
+    let tar = Tar::new(Cursor::new(&file[..]));
+    for _ in 0..4 {
+        let mut a = tar.open(Path::new("a.txt")).unwrap();
+        let mut b = tar.open(Path::new("b.txt")).unwrap();
+        let mut a_content = String::new();
+        let mut b_content = String::new();
+
+        a.read_to_string(&mut a_content).unwrap();
+        b.read_to_string(&mut b_content).unwrap();
+
+        assert_eq!("hello\n", a_content);
+        assert_eq!("world!\n", b_content);
+        assert!(tar.open(Path::new("nope")).is_err());
     }
 }

@@ -53,7 +53,7 @@ pub struct MiniFs<F> {
 impl<F> Store for MiniFs<F> {
     type File = F;
 
-    fn open(&self, path: &Path) -> io::Result<F> {
+    fn open_path(&self, path: &Path) -> io::Result<F> {
         let next = self.mount.iter().rev().find_map(|mnt| {
             if let Ok(np) = path.strip_prefix(&mnt.path) {
                 Some((np, &mnt.store))
@@ -62,7 +62,7 @@ impl<F> Store for MiniFs<F> {
             }
         });
         if let Some((np, store)) = next {
-            store.open(np)
+            store.open_path(np)
         } else {
             Err(Error::from(ErrorKind::NotFound))
         }
@@ -111,7 +111,7 @@ pub struct Local {
 impl Store for Local {
     type File = file::File;
 
-    fn open(&self, path: &Path) -> io::Result<file::File> {
+    fn open_path(&self, path: &Path) -> io::Result<file::File> {
         let file = fs::File::open(self.root.join(path))?;
         Ok(file::File::from_std(file))
     }
@@ -136,7 +136,7 @@ pub struct Ram {
 impl Store for Ram {
     type File = file::File;
 
-    fn open(&self, path: &Path) -> io::Result<file::File> {
+    fn open_path(&self, path: &Path) -> io::Result<file::File> {
         match self.inner.get(path) {
             Some(file) => Ok(file::File::from_ram(Rc::clone(file))),
             None => Err(Error::from(ErrorKind::NotFound)),

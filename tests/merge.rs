@@ -15,13 +15,13 @@ fn merge() {
 
     let fs = MiniFs::new().mount("/files", (b, a));
 
-    assert!(fs.open2("/files/a.txt").is_ok());
-    assert!(fs.open2("/files/b.txt").is_ok());
-    assert!(fs.open2("/files/c.txt").is_ok());
+    assert!(fs.open("/files/a.txt").is_ok());
+    assert!(fs.open("/files/b.txt").is_ok());
+    assert!(fs.open("/files/c.txt").is_ok());
 
     let mut atxt = String::new();
 
-    let mut file = fs.open2("/files/a.txt").unwrap();
+    let mut file = fs.open("/files/a.txt").unwrap();
     file.read_to_string(&mut atxt).unwrap();
 
     assert_eq!("overriden", atxt);

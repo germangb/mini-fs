@@ -35,7 +35,7 @@ impl<T: Read + Seek> Zip<T> {
 
 impl<T: Read + Seek> Store for Zip<T> {
     type File = file::File;
-    fn open(&self, path: &Path) -> io::Result<file::File> {
+    fn open_path(&self, path: &Path) -> io::Result<file::File> {
         let mut file = self.inner.borrow_mut();
         file.seek(SeekFrom::Start(0))?;
 

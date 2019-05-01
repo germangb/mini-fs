@@ -18,7 +18,7 @@ pub struct Tar<F: Read + Seek> {
 
 impl<T: Read + Seek> Store for Tar<T> {
     type File = file::File;
-    fn open(&self, path: &Path) -> io::Result<file::File> {
+    fn open_path(&self, path: &Path) -> io::Result<file::File> {
         if self.gzip.get() {
             let mut file = self.inner.borrow_mut();
             file.seek(SeekFrom::Start(0))?;
@@ -33,7 +33,7 @@ impl<T: Read + Seek> Store for Tar<T> {
                     } else {
                         self.gzip.set(true);
                         drop(file);
-                        self.open(path)
+                        self.open_path(path)
                     }
                 }
                 Ok(entry) => Ok(entry),

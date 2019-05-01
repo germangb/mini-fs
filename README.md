@@ -30,7 +30,7 @@ let mut fs = MiniFs::new()
     .mount("/archived", tar);
 
 // To open (read) files:
-let file = fs.open(Path::new("/data/example.gif"))?;
+let file = fs.open("/data/example.gif")?;
 
 // Unmount it when you're done (drops the file system)
 fs.umount("/data");
@@ -50,8 +50,8 @@ let b = Tar::open("archive.tar.gz")?;
 
 let files = MiniFs::new().mount("/files", (a, b));
 
-assert!(files.open(Path::new("/files/example.txt")).is_ok()); // this "example.txt" is from "a"
-assert!(files.open(Path::new("/files/hello.txt")).is_ok());
+assert!(files.open("/files/example.txt").is_ok()); // this "example.txt" is from "a"
+assert!(files.open("/files/hello.txt").is_ok());
 ```
 
 Note that if you tried to first mount `a`, followed by `b` on the same mount point, the first one would be shadowed by `b`.

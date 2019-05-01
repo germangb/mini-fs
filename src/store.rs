@@ -4,26 +4,26 @@ use std::path::Path;
 /// Generic file storage.
 pub trait Store {
     type File;
-    fn open(&self, path: &Path) -> io::Result<Self::File>;
+    fn open_path(&self, path: &Path) -> io::Result<Self::File>;
 
-    fn open_read(&self, path: &Path) -> io::Result<Self::File> {
-        self.open(path)
+    fn open_read_path(&self, path: &Path) -> io::Result<Self::File> {
+        self.open_path(path)
     }
 
-    fn open2<P>(&self, path: P) -> io::Result<Self::File>
+    fn open<P>(&self, path: P) -> io::Result<Self::File>
     where
         P: AsRef<Path>,
         Self: Sized,
     {
-        self.open(path.as_ref())
+        self.open_path(path.as_ref())
     }
 
-    fn open_read2<P>(&self, path: P) -> io::Result<Self::File>
+    fn open_read<P>(&self, path: P) -> io::Result<Self::File>
     where
         P: AsRef<Path>,
         Self: Sized,
     {
-        self.open_read(path.as_ref())
+        self.open_read_path(path.as_ref())
     }
 
     fn map_file<F, U>(self, f: F) -> MapFile<Self, F>
@@ -60,8 +60,8 @@ where
     type File = U;
 
     #[inline]
-    fn open(&self, path: &Path) -> io::Result<Self::File> {
-        match self.store.open(path) {
+    fn open_path(&self, path: &Path) -> io::Result<Self::File> {
+        match self.store.open_path(path) {
             Ok(file) => Ok((self.clo)(file)),
             Err(err) => Err(err),
         }
@@ -78,7 +78,7 @@ macro_rules! tuples {
         {
             type File = $head::File;
             #[allow(non_snake_case)]
-            fn open(&self, path: &Path) -> io::Result<Self::File> {
+            fn open_path(&self, path: &Path) -> io::Result<Self::File> {
                 let ($head, $($tail,)+) = self;
                 match $head.open(path) {
                     Ok(file) => return Ok(file),

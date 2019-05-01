@@ -10,8 +10,8 @@ fn tar() {
     let file = include_bytes!("archive.tar");
     let tar = Tar::new(Cursor::new(&file[..]));
     for _ in 0..4 {
-        let mut a = tar.open(Path::new("a.txt")).unwrap();
-        let mut b = tar.open(Path::new("b.txt")).unwrap();
+        let mut a = tar.open("a.txt").unwrap();
+        let mut b = tar.open("b.txt").unwrap();
         let mut a_content = String::new();
         let mut b_content = String::new();
 
@@ -20,7 +20,7 @@ fn tar() {
 
         assert_eq!("hello\n", a_content);
         assert_eq!("world!\n", b_content);
-        assert!(tar.open(Path::new("nope")).is_err());
+        assert!(tar.open_path(Path::new("nope")).is_err());
     }
 }
 
@@ -33,8 +33,8 @@ fn tar_gz_v2() {
     let file = include_bytes!("archive.tar.gz");
     let tar = Tar::new(Cursor::new(&file[..]));
     for _ in 0..4 {
-        let mut a = tar.open(Path::new("a.txt")).unwrap();
-        let mut b = tar.open(Path::new("b.txt")).unwrap();
+        let mut a = tar.open("a.txt").unwrap();
+        let mut b = tar.open("b.txt").unwrap();
         let mut a_content = String::new();
         let mut b_content = String::new();
 
@@ -43,6 +43,6 @@ fn tar_gz_v2() {
 
         assert_eq!("hello\n", a_content);
         assert_eq!("world!\n", b_content);
-        assert!(tar.open(Path::new("nope")).is_err());
+        assert!(tar.open_path(Path::new("nope")).is_err());
     }
 }

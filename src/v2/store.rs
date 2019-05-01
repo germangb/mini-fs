@@ -1,5 +1,4 @@
 use std::io::{self, ErrorKind};
-use std::marker::PhantomData;
 use std::path::Path;
 
 /// Generic file storage.
@@ -7,7 +6,27 @@ pub trait Store {
     type File;
     fn open(&self, path: &Path) -> io::Result<Self::File>;
 
-    fn map_file<F, U>(self, f: F) -> MapFile<Self, F, U>
+    fn open_read(&self, path: &Path) -> io::Result<Self::File> {
+        self.open(path)
+    }
+
+    fn open2<P>(&self, path: P) -> io::Result<Self::File>
+    where
+        P: AsRef<Path>,
+        Self: Sized,
+    {
+        self.open(path.as_ref())
+    }
+
+    fn open_read2<P>(&self, path: P) -> io::Result<Self::File>
+    where
+        P: AsRef<Path>,
+        Self: Sized,
+    {
+        self.open_read(path.as_ref())
+    }
+
+    fn map_file<F, U>(self, f: F) -> MapFile<Self, F>
     where
         F: Fn(Self::File) -> U,
         Self: Sized,
@@ -16,26 +35,24 @@ pub trait Store {
     }
 }
 
-/// File type adapter.
+/// Maps file type using a closure.
 ///
 /// See [`Store::map_file`](trait.Store.html#method.map_file).
-pub struct MapFile<S, F, U> {
+pub struct MapFile<S, F> {
     store: S,
     clo: F,
-    _phantom: PhantomData<U>,
 }
 
-impl<S, F, U> MapFile<S, F, U> {
+impl<S, F> MapFile<S, F> {
     fn new(store: S, closure: F) -> Self {
         Self {
             store,
             clo: closure,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<S, F, U> Store for MapFile<S, F, U>
+impl<U, S, F> Store for MapFile<S, F>
 where
     S: Store,
     F: Fn(S::File) -> U,
@@ -76,7 +93,7 @@ macro_rules! tuples {
                 }
                 )+
 
-                Err(io::Error::new(io::ErrorKind::NotFound, "File not found."))
+                Err(io::Error::from(io::ErrorKind::NotFound))
             }
         }
         tuples!($($tail,)+);

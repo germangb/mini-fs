@@ -1,3 +1,16 @@
+//! **mini-fs** is a filesystem abstraction layer.
+//!
+//! Currently supported features include:
+//!
+//! - Access to the local (native) filesystem.
+//! - In-memory filesystems.
+//! - Tar, tar.gz, and Zip archives.
+//! - Logically merging filesystems (useful for overriding some files)
+//!
+//! ## Case sensitivity
+//!
+//! Paths defined by the virtual filesystem are **case sensitive**.
+//!
 use std::collections::{BTreeMap, LinkedList};
 use std::env;
 use std::fs;
@@ -6,12 +19,19 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 pub use file::File;
+#[cfg(feature = "s3")]
+pub use s3::S3;
 pub use store::Store;
+#[cfg(feature = "tar")]
 pub use tar::Tar;
+#[cfg(feature = "zip")]
 pub use zip::Zip;
 
 /// Concrete file type
 mod file;
+/// S3 bucket from Aws.
+#[cfg(feature = "s3")]
+pub mod s3;
 /// File storage generic.
 pub mod store;
 /// Tar file storage.
@@ -31,7 +51,7 @@ pub struct MiniFs<F> {
     mount: LinkedList<Mount<F>>,
 }
 
-impl<F> self::store::Store for MiniFs<F> {
+impl<F> Store for MiniFs<F> {
     type File = F;
 
     fn open(&self, path: &Path) -> io::Result<F> {

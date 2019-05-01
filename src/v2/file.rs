@@ -51,7 +51,9 @@ impl Write for File {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self.0 {
-            FileInner::Ram(ref mut ram) => panic!(),
+            FileInner::Ram(ref mut ram) => {
+                Err(io::Error::new(io::ErrorKind::Other, "Write not supported."))
+            }
             FileInner::Fs(ref mut file) => file.write(buf),
         }
     }
@@ -59,7 +61,9 @@ impl Write for File {
     #[inline]
     fn flush(&mut self) -> io::Result<()> {
         match self.0 {
-            FileInner::Ram(ref mut ram) => panic!(),
+            FileInner::Ram(ref mut ram) => {
+                Err(io::Error::new(io::ErrorKind::Other, "Write not supported."))
+            }
             FileInner::Fs(ref mut file) => file.flush(),
         }
     }

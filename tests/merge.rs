@@ -42,13 +42,13 @@ fn merge_v2() {
 
     let fs = MiniFs::new().mount("/files", (b, a));
 
-    assert!(fs.open(Path::new("/files/a.txt")).is_ok());
-    assert!(fs.open(Path::new("/files/b.txt")).is_ok());
-    assert!(fs.open(Path::new("/files/c.txt")).is_ok());
+    assert!(fs.open2("/files/a.txt").is_ok());
+    assert!(fs.open2("/files/b.txt").is_ok());
+    assert!(fs.open2("/files/c.txt").is_ok());
 
     let mut atxt = String::new();
 
-    let mut file = fs.open(Path::new("/files/a.txt")).unwrap();
+    let mut file = fs.open2("/files/a.txt").unwrap();
     file.read_to_string(&mut atxt).unwrap();
 
     assert_eq!("overriden", atxt);

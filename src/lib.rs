@@ -7,29 +7,9 @@
 //! - Tar, tar.gz, and Zip archives.
 //! - Logically merging filesystems (useful for overriding some files)
 //!
-//! ## Merging example
+//! ## Case sensitivity
 //!
-//! This feature is useful when you want to override some files from another
-//! location:
-//!
-//! ```no_run
-//! # fn main() -> Result<(), mini_fs::err::Error> {
-//! use std::path::Path;
-//! # use mini_fs::{Store, Local, Tar, MiniFs, err::Error};
-//! let a = Local::new("data/");
-//! // |- example.txt
-//!
-//! let b = Tar::open("archive.tar.gz")?;
-//! // |- example.txt
-//! // |- hello.txt
-//!
-//! let files = MiniFs::new().mount("/files", (a, b));
-//!
-//! assert!(files.open(Path::new("/files/example.txt")).is_ok()); // this "example.txt" is from "a"
-//! assert!(files.open(Path::new("/files/hello.txt")).is_ok());
-//! # Ok(())
-//! # }
-//! ```
+//! Paths defined by the virtual filesystem are **case sensitive**.
 use std::collections::BTreeMap;
 use std::collections::LinkedList;
 use std::env;

@@ -23,5 +23,8 @@ default = ["tar", "zip"]
 tar = ["tar_", "flate2"]
 zip = ["zip_"]
 
+# Aws S3 support
+s3 = []
+
 # version 0.2 of this crate (for development purposes)
 point_two = []

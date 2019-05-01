@@ -1,6 +1,6 @@
 [package]
 name = "mini-fs"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["german gomez <germangb42@gmail.com>"]
 description = "Application filesystem to simplify reading files from both the native filesystem and file archives (tar, tar.gz & zip)."
 repository = "https://github.com/germangb/mini-fs"
@@ -25,6 +25,3 @@ zip = ["zip_"]
 
 # Aws S3 support
 s3 = []
-
-# version 0.2 of this crate (for development purposes)
-point_two = []

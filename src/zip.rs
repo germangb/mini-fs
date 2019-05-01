@@ -1,13 +1,13 @@
 use std::cell::RefCell;
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{self, ErrorKind, Read, Seek, SeekFrom};
 use std::ops::DerefMut;
 use std::path::Path;
 
 use zip_::ZipArchive;
 
-use crate::err::{Error, Result};
-use crate::{File, Store};
+use crate::file;
+use crate::Store;
 
 /// Zip archive store.
 pub struct Zip<T: Read + Seek> {
@@ -15,7 +15,7 @@ pub struct Zip<T: Read + Seek> {
 }
 
 impl Zip<fs::File> {
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let file = fs::OpenOptions::new()
             .read(true)
             .write(false)
@@ -34,16 +34,20 @@ impl<T: Read + Seek> Zip<T> {
 }
 
 impl<T: Read + Seek> Store for Zip<T> {
-    fn open(&self, path: &Path) -> Result<File> {
+    type File = file::File;
+    fn open(&self, path: &Path) -> io::Result<file::File> {
         let mut file = self.inner.borrow_mut();
         file.seek(SeekFrom::Start(0))?;
 
         let mut archive = ZipArchive::new(file.deref_mut())?;
-        let name = path.to_str().ok_or(Error::Utf8)?;
-        let mut file = archive.by_name(name)?;
+        let name = path.to_str().ok_or(io::Error::new(
+            ErrorKind::Other,
+            "Utf8 path conversion error.",
+        ));
+        let mut file = archive.by_name(name?)?;
 
         let mut v = Vec::new();
         file.read_to_end(&mut v)?;
-        Ok(File::from_ram(v))
+        Ok(file::File::from_ram(v))
     }
 }

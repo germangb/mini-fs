@@ -10,180 +10,51 @@
 //! ## Case sensitivity
 //!
 //! Paths defined by the virtual filesystem are **case sensitive**.
-use std::collections::BTreeMap;
-use std::collections::LinkedList;
+use std::collections::{BTreeMap, LinkedList};
 use std::env;
 use std::fs;
+use std::io::{self, Error, ErrorKind};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
-use err::{Error, Result};
 pub use file::File;
+#[cfg(feature = "s3")]
+pub use s3::S3;
+pub use store::Store;
 #[cfg(feature = "tar")]
 pub use tar::Tar;
 #[cfg(feature = "zip")]
 pub use zip::Zip;
 
-/// Error and result types.
-pub mod err;
+/// Concrete file type
 mod file;
-/// Storage from a tarball.
-///
-/// *To use this module you must enable the "tar" feature.*
+/// S3 bucket from Aws.
+#[cfg(feature = "s3")]
+pub mod s3;
+/// File storage generic.
+pub mod store;
+/// Tar file storage.
 #[cfg(feature = "tar")]
 pub mod tar;
-/// v2 api work in progress.
-///
-/// *To use this module you must enable the "point_two" feature*
-#[cfg(feature = "point_two")]
-pub mod v2;
-/// Storage from a Zip file.
-///
-/// *To use this module you must enable the "zip" feature.*
+/// Zip file storage.
 #[cfg(feature = "zip")]
 pub mod zip;
 
-/// Generic filesystem abstraction.
-pub trait Store {
-    /// Opens file in read-only mode.
-    fn open(&self, path: &Path) -> Result<File>;
-
-    /// Opens a file in write-only mode.
-    #[allow(unused_variables)]
-    fn open_write(&self, path: &Path) -> Result<File> {
-        Err(Error::Io(file::write_support_err()))
-    }
-}
-
-/// Local (native) filesystem.
-pub struct Local {
-    root: PathBuf,
-}
-
-impl Store for Local {
-    fn open(&self, path: &Path) -> Result<File> {
-        let file = fs::File::open(self.root.join(path))?;
-        Ok(File::from_fs(file))
-    }
-
-    fn open_write(&self, path: &Path) -> Result<File> {
-        let file = fs::OpenOptions::new()
-            .write(true)
-            // FileMut doesn't impl Read
-            .read(false)
-            .create(false)
-            .open(path)?;
-
-        Ok(File::from_fs(file))
-    }
-}
-
-impl Local {
-    pub fn new<P: Into<PathBuf>>(root: P) -> Self {
-        Self { root: root.into() }
-    }
-
-    /// Point to the current working directory.
-    pub fn pwd() -> Result<Self> {
-        Ok(Self::new(env::current_dir()?))
-    }
-}
-
-/// In-memory file store.
-#[derive(Clone)]
-pub struct Ram {
-    inner: BTreeMap<PathBuf, Vec<u8>>,
-}
-
-impl Store for Ram {
-    fn open(&self, path: &Path) -> Result<File> {
-        self.inner
-            .get(path)
-            .map(|b| File::from_ram(b))
-            .ok_or_else(|| Error::FileNotFound)
-    }
-}
-
-impl Ram {
-    pub fn new() -> Self {
-        Self {
-            inner: BTreeMap::new(),
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.inner.clear();
-    }
-
-    pub fn touch<P, F>(&mut self, path: P, file: F)
-    where
-        P: Into<PathBuf>,
-        F: Into<Vec<u8>>,
-    {
-        self.inner.insert(path.into(), file.into());
-    }
-}
-
-struct Mount {
+struct Mount<F> {
     path: PathBuf,
-    store: Box<dyn Store>,
+    store: Box<dyn Store<File = F>>,
 }
 
 /// Virtual filesystem.
-pub struct MiniFs {
-    inner: LinkedList<Mount>,
+pub struct MiniFs<F> {
+    mount: LinkedList<Mount<F>>,
 }
 
-impl MiniFs {
-    pub fn new() -> Self {
-        Self {
-            inner: LinkedList::new(),
-        }
-    }
+impl<F> Store for MiniFs<F> {
+    type File = F;
 
-    pub fn mount<P, F>(mut self, path: P, store: F) -> Self
-    where
-        P: Into<PathBuf>,
-        F: Store + Send + 'static,
-    {
-        let path = path.into();
-        let store = Box::new(store);
-        self.inner.push_back(Mount { path, store });
-        self
-    }
-
-    /// Unmounts store mounted at the given location.
-    ///
-    /// Returns the unmounted store if the given path was a valid mounting
-    /// point. Returns `None` otherwise.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use mini_fs::{Local, MiniFs};
-    /// let a = Local::new("/");
-    /// let b = Local::new("/etc");
-    ///
-    /// let mut fs = MiniFs::new().mount("/", a).mount("/etc", b);
-    ///
-    /// assert!(fs.umount("/etc").is_some());
-    /// assert!(fs.umount("/etc").is_none());
-    /// ```
-    pub fn umount<P: AsRef<Path>>(&mut self, path: P) -> Option<Box<dyn Store>> {
-        let path = path.as_ref();
-        if let Some(p) = self.inner.iter().rposition(|p| p.path == path) {
-            let mut tail = self.inner.split_off(p);
-            let fs = tail.pop_front().map(|m| m.store);
-            self.inner.append(&mut tail);
-            fs
-        } else {
-            None
-        }
-    }
-}
-
-impl Store for MiniFs {
-    fn open(&self, path: &Path) -> Result<File> {
-        let next = self.inner.iter().rev().find_map(|mnt| {
+    fn open(&self, path: &Path) -> io::Result<F> {
+        let next = self.mount.iter().rev().find_map(|mnt| {
             if let Ok(np) = path.strip_prefix(&mnt.path) {
                 Some((np, &mnt.store))
             } else {
@@ -193,48 +64,110 @@ impl Store for MiniFs {
         if let Some((np, store)) = next {
             store.open(np)
         } else {
-            Err(Error::FileNotFound)
+            Err(Error::from(ErrorKind::NotFound))
         }
     }
 }
 
-macro_rules! tuples {
-    ($head:ident,) => {};
-    ($head:ident, $($tail:ident,)+) => {
-        impl<$head, $($tail,)+> Store for ($head, $($tail,)+)
-        where
-            $head: Store,
-            $($tail: Store,)+
-        {
-            #[allow(non_snake_case)]
-            fn open(&self, path: &Path) -> Result<File> {
-                let ($head, $($tail,)+) = self;
-                match $head.open(path) {
-                    Ok(file) => return Ok(file),
-                    Err(Error::FileNotFound) => {}
-                    Err(err) => return Err(err),
-                }
-                $(
-                match $tail.open(path) {
-                    Ok(file) => return Ok(file),
-                    Err(Error::FileNotFound) => {}
-                    Err(err) => return Err(err),
-                }
-                )+
-                Err(Error::FileNotFound)
-            }
+impl<F> MiniFs<F> {
+    pub fn new() -> Self {
+        Self {
+            mount: LinkedList::new(),
         }
-        tuples!($($tail,)+);
-    };
+    }
+
+    pub fn mount<P, S>(mut self, path: P, store: S) -> Self
+    where
+        P: Into<PathBuf>,
+        S: Store<File = F> + 'static,
+    {
+        let path = path.into();
+        let store = Box::new(store);
+        self.mount.push_back(Mount { path, store });
+        self
+    }
+
+    pub fn umount<P>(&mut self, path: P) -> Option<Box<dyn Store<File = F>>>
+    where
+        P: AsRef<Path>,
+    {
+        let path = path.as_ref();
+        if let Some(p) = self.mount.iter().rposition(|p| p.path == path) {
+            let mut tail = self.mount.split_off(p);
+            let fs = tail.pop_front().map(|m| m.store);
+            self.mount.append(&mut tail);
+            fs
+        } else {
+            None
+        }
+    }
 }
 
-// implement for tuples of up to size 8
-tuples! { A, B, C, D, E, F, G, H, }
+/// Native file store.
+pub struct Local {
+    root: PathBuf,
+}
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+impl Store for Local {
+    type File = file::File;
+
+    fn open(&self, path: &Path) -> io::Result<file::File> {
+        let file = fs::File::open(self.root.join(path))?;
+        Ok(file::File::from_std(file))
+    }
+}
+
+impl Local {
+    pub fn new<P: Into<PathBuf>>(root: P) -> Self {
+        Self { root: root.into() }
+    }
+
+    /// Point to the current working directory.
+    pub fn pwd() -> io::Result<Self> {
+        Ok(Self::new(env::current_dir()?))
+    }
+}
+
+/// In-memory file storage
+pub struct Ram {
+    inner: BTreeMap<PathBuf, Rc<[u8]>>,
+}
+
+impl Store for Ram {
+    type File = file::File;
+
+    fn open(&self, path: &Path) -> io::Result<file::File> {
+        match self.inner.get(path) {
+            Some(file) => Ok(file::File::from_ram(Rc::clone(file))),
+            None => Err(Error::from(ErrorKind::NotFound)),
+        }
+    }
+}
+
+impl Ram {
+    pub fn new() -> Self {
+        Ram {
+            inner: BTreeMap::new(),
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.inner.clear();
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn rm<P: AsRef<Path>>(&mut self, path: P) -> Option<Rc<[u8]>> {
+        self.inner.remove(path.as_ref())
+    }
+
+    pub fn touch<P, F>(&mut self, path: P, file: F)
+    where
+        P: Into<PathBuf>,
+        F: Into<Rc<[u8]>>,
+    {
+        self.inner.insert(path.into(), file.into());
     }
 }

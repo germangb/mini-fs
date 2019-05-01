@@ -2,9 +2,6 @@
 
 use std::path::Path;
 
-#[cfg(feature = "point_two")]
-use mini_fs::v2::{Local, MiniFs};
-#[cfg(not(feature = "point_two"))]
 use mini_fs::{Local, MiniFs};
 
 fn main() {

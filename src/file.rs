@@ -1,81 +1,77 @@
 use std::borrow::Cow;
 use std::fs;
-use std::io::{self, Cursor, Read, Write};
+use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
+use std::rc::Rc;
 
-enum FileInner<'a> {
-    Ram(Cursor<Cow<'a, [u8]>>),
+enum FileInner {
+    Ram(Cursor<Rc<[u8]>>),
     Fs(fs::File),
 }
 
-/// File you can Read and write to.
-pub struct File<'a> {
-    inner: FileInner<'a>,
-}
+/// Concrete file type.
+pub struct File(FileInner);
 
-impl<'a> File<'a> {
-    pub(crate) fn from_fs(file: fs::File) -> Self {
-        File {
-            inner: FileInner::Fs(file),
-        }
+impl File {
+    pub fn from_ram<T: Into<Rc<[u8]>>>(file: T) -> Self {
+        File(FileInner::Ram(Cursor::new(file.into())))
     }
 
-    pub(crate) fn from_ram<T: Into<Cow<'a, [u8]>>>(ram: T) -> Self {
-        File {
-            inner: FileInner::Ram(Cursor::new(ram.into())),
-        }
+    pub fn from_std(file: fs::File) -> Self {
+        File(FileInner::Fs(file))
     }
 
-    pub fn as_std_mut(&mut self) -> Option<&mut fs::File> {
-        match &mut self.inner {
-            FileInner::Fs(ref mut file) => Some(file),
-            _ => None,
-        }
-    }
-
-    pub fn as_std(&self) -> Option<&fs::File> {
-        match &self.inner {
-            FileInner::Fs(ref file) => Some(file),
-            _ => None,
-        }
-    }
-
-    /// Returns the internally wrapped file.
     pub fn into_std(self) -> Option<fs::File> {
-        match self.inner {
+        match self.0 {
             FileInner::Fs(file) => Some(file),
             _ => None,
         }
     }
-}
 
-impl<'a> Read for File<'a> {
-    #[inline]
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match &mut self.inner {
-            FileInner::Ram(ram) => ram.read(buf),
-            FileInner::Fs(fs) => fs.read(buf),
+    pub fn into_ram(self) -> Option<Rc<[u8]>> {
+        match self.0 {
+            FileInner::Ram(cursor) => Some(cursor.into_inner()),
+            _ => None,
         }
     }
 }
 
-impl<'a> Write for File<'a> {
+impl Read for File {
+    #[inline]
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self.0 {
+            FileInner::Ram(ref mut ram) => ram.read(buf),
+            FileInner::Fs(ref mut file) => file.read(buf),
+        }
+    }
+}
+
+impl Write for File {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match &mut self.inner {
-            FileInner::Fs(fs) => fs.write(buf),
-            _ => Err(write_support_err()),
+        match self.0 {
+            FileInner::Ram(ref mut ram) => {
+                Err(io::Error::new(io::ErrorKind::Other, "Write not supported."))
+            }
+            FileInner::Fs(ref mut file) => file.write(buf),
         }
     }
 
     #[inline]
     fn flush(&mut self) -> io::Result<()> {
-        match &mut self.inner {
-            FileInner::Fs(fs) => fs.flush(),
-            _ => Err(write_support_err()),
+        match self.0 {
+            FileInner::Ram(ref mut ram) => {
+                Err(io::Error::new(io::ErrorKind::Other, "Write not supported."))
+            }
+            FileInner::Fs(ref mut file) => file.flush(),
         }
     }
 }
 
-pub fn write_support_err() -> io::Error {
-    io::Error::new(io::ErrorKind::Other, "Operation not supported.")
+impl Seek for File {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        match self.0 {
+            FileInner::Ram(ref mut ram) => ram.seek(pos),
+            FileInner::Fs(ref mut file) => file.seek(pos),
+        }
+    }
 }

@@ -1,26 +1,13 @@
-//! ```should_panic
-//! use mini_fs::tar::Tar;
-//! # use mini_fs::err::Error;
-//!
-//! # fn main() -> Result<(), Error> {
-//! let tar = Tar::open("example.tar")?;
-//!
-//! // gzip files also supported:
-//! let targz = Tar::open("example.tar.gz")?;
-//! # Ok(())
-//! # }
-//! ```
 use std::cell::{Cell, RefCell};
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{self, ErrorKind, Read, Seek, SeekFrom};
 use std::ops::DerefMut;
 use std::path::Path;
 
 use flate2::read::GzDecoder;
 use tar_::Archive;
 
-use crate::err::{Error, Result};
-use crate::file::File;
+use crate::file;
 use crate::Store;
 
 /// Tar archive.
@@ -30,7 +17,8 @@ pub struct Tar<F: Read + Seek> {
 }
 
 impl<T: Read + Seek> Store for Tar<T> {
-    fn open(&self, path: &Path) -> Result<File> {
+    type File = file::File;
+    fn open(&self, path: &Path) -> io::Result<file::File> {
         if self.gzip.get() {
             let mut file = self.inner.borrow_mut();
             file.seek(SeekFrom::Start(0))?;
@@ -39,11 +27,14 @@ impl<T: Read + Seek> Store for Tar<T> {
             let mut file = self.inner.borrow_mut();
             file.seek(SeekFrom::Start(0))?;
             match self.open_read(path, file.deref_mut()) {
-                Err(Error::FileNotFound) => Err(Error::FileNotFound),
-                Err(_) => {
-                    self.gzip.set(true);
-                    drop(file);
-                    self.open(path)
+                Err(e) => {
+                    if e.kind() == ErrorKind::NotFound {
+                        return Err(io::Error::from(ErrorKind::NotFound));
+                    } else {
+                        self.gzip.set(true);
+                        drop(file);
+                        self.open(path)
+                    }
                 }
                 Ok(entry) => Ok(entry),
             }
@@ -53,7 +44,7 @@ impl<T: Read + Seek> Store for Tar<T> {
 
 impl Tar<fs::File> {
     /// Open a file from the native filesystem.
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let file = fs::OpenOptions::new()
             .read(true)
             .write(false)
@@ -71,16 +62,16 @@ impl<T: Read + Seek> Tar<T> {
         }
     }
 
-    fn open_read<R: Read>(&self, path: &Path, read: R) -> Result<File> {
+    fn open_read<R: Read>(&self, path: &Path, read: R) -> io::Result<file::File> {
         let mut archive = Archive::new(read);
         for entry in archive.entries()? {
             let mut entry = entry?;
             if path == entry.path()? {
                 let mut data = Vec::new();
                 entry.read_to_end(&mut data)?;
-                return Ok(File::from_ram(data));
+                return Ok(file::File::from_ram(data));
             }
         }
-        Err(Error::FileNotFound)
+        Err(io::Error::from(ErrorKind::NotFound))
     }
 }

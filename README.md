@@ -11,7 +11,7 @@ Supports opening files from the local filesystem, as well as tar & zip archives.
 
 ```toml
 [dependencies]
-mini-fs = "0.1"
+mini-fs = "0.2"
 ```
 
 An example showcasing the API:

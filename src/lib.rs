@@ -52,7 +52,7 @@ mod file;
 #[cfg(feature = "tar")]
 pub mod tar;
 /// v2 api work in progress.
-#[cfg(feature = "point_two")]
+//#[cfg(feature = "point_two")]
 pub mod v2;
 /// Storage from a Zip file.
 ///

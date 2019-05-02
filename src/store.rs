@@ -1,8 +1,6 @@
 use std::io::{self, Read, Seek, Write};
 use std::path::Path;
 
-pub trait StoreFile: Read + Write + Seek {}
-
 /// Generic file storage.
 pub trait Store {
     type File;
@@ -28,26 +26,18 @@ pub trait Store {
     {
         self.open_write_path(path.as_ref())
     }
-
-    fn map_file<F, U>(self, f: F) -> MapFile<Self, F>
-    where
-        F: Fn(Self::File) -> U,
-        Self: Sized,
-    {
-        MapFile::new(self, f)
-    }
 }
 
 /// Maps file type using a closure.
 ///
 /// See [`Store::map_file`](trait.Store.html#method.map_file).
-pub struct MapFile<S, F> {
+pub(crate) struct MapFile<S, F> {
     store: S,
     clo: F,
 }
 
 impl<S, F> MapFile<S, F> {
-    fn new(store: S, closure: F) -> Self {
+    pub(crate) fn new(store: S, closure: F) -> Self {
         Self {
             store,
             clo: closure,

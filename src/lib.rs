@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use std::any::Any;
-pub use store::{MapFile, Store};
+pub use store::Store;
 #[cfg(feature = "tar")]
 pub use tar::Tar;
 #[cfg(feature = "zip")]
@@ -158,7 +158,7 @@ impl MiniFs {
         T: Into<File>,
     {
         let path = path.into();
-        let store = Box::new(store.map_file(|file| file.into()));
+        let store = Box::new(store::MapFile::new(store, |file: T| file.into()));
         self.mount.push_back(Mount { path, store });
         self
     }

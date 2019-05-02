@@ -37,12 +37,12 @@ fs.umount("/data");
 
 ## Merging
 
-You can merge multiple file systems so they share the same mount point using a tuple. This allows you to override certain files from another location.
+You can merge multiple file systems so they share the same mount point using a tuple. This allows you to override files between locations.
 
 Example use cases:
 
 * Config files with default fallbacks.
-* Replace assets on a game (modding).
+* Replacing the assets from a game (modding).
 
 ```rust
 let a = Local::new("data/");
@@ -71,36 +71,36 @@ You'll need to:
 
 ---
 
-For example, say you want to implement storage based on a Zip archive (this crate already has an implementation, but let's say you want to improve it).
+For example, say you want to implement a file store (`MyZip`) based on a Zip archive (this crate already has an implementation, but let's say you want to improve it).
 
-You'd need to implement something like the following:
-
-First, define the types for the storage and the files that it returns.
+First, define types for both the Storage and the File that it will return.
 ```rust
 use std::io;
-use mini_fs::{Store, File, UserFile};
+use mini_fs::{Store, UserFile};
 
-// This the type that will be mounted. It represents the Storage itself.
+// This is the filesystem that will be mounted.
 struct MyZip { /*...*/ }
 
-// This example implementation of Zip will return a slice of bytes for each
-// entry in the archive. This type must implement both io::Read and io::Seek
-// before implementing the UserFile trait.
+// This example MyZip implementatin will return a slice of bytes for each
+// entry in the archive. It is wrapped in a Cursor to enable IO later.
 struct MyZipEntry(io::Cursor<Box<[u8]>>);
 
 impl UserFile for MyZipEntry {}
+```
 
-// The file needs to implement IO (having the io::Cursor makes it easy)
+Implement IO on `MyZipEntry`.
+
+```rust
 impl io::Read for MyZipEntry {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.read(buf)
     }
 }
 
-impl io::Seek for MyZipEntry { /*...*/ }
+impl io::Seek for MyZipEntry { /* skipped */ }
 ```
 
-And then, implement the `Store` trait:
+And Finally, implement the `Store` trait on `MyZip`
 
 ```rust
 impl Store for MyZip {
@@ -113,9 +113,7 @@ impl Store for MyZip {
 }
 ```
 
----
-
-And that is all, Now you can mount this store and/or use it as part of a tuple.
+And that is all. Now you can mount `MyZip` and/or use it as part of a tuple.
 
 ## License
 

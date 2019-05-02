@@ -4,8 +4,8 @@ rust:
   - beta
   - nightly
 script:
-  - cargo build --features tar,zip,point_two
-  - cargo test --features tar,zip,point_two
+  - cargo build --features tar,zip
+  - cargo test --features tar,zip
 matrix:
   allow_failures:
     - rust: nightly

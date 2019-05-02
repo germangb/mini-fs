@@ -17,7 +17,6 @@ mini-fs = "0.2"
 An example showcasing the API:
 
 ```rust
-use std::path::Path;
 use mini_fs::{Store, Local, Tar, MiniFs};
 
 // Declare some file systems.
@@ -55,6 +54,70 @@ assert!(files.open("/files/hello.txt").is_ok());
 ```
 
 Note that if you tried to first mount `a`, followed by `b` on the same mount point, the first one would be shadowed by `b`.
+
+## Implement a new kind of storage
+
+It is possible to define a new file store so you can read files from an archive format that is not directly supported by this crate.
+
+You'll have to do:
+
+1. Implement the trait `Store`, which has an associated type `Store::File` that it returns.
+2. Implement the trait `Custom` on the `Store::File` associated type.
+3. Implement `From<Store::File>` to build an `File` from the associated type.
+
+---
+
+For example, say you want to implement storage based on a Zip file (this crate already has an implementation, but let's say you want to improve it because it's really not that good...).
+
+You'd need to implement something like the following:
+
+First, define the types for the storage and the files that it returns.
+```rust
+use std::io;
+use mini_fs::{Store, File};
+
+// This is the struct representing the Zip archive.
+struct MyZip { /*...*/ }
+
+// This example implementation of Zip will return a slice of bytes for each
+// entry in the archive (we wrap it in a Cursor because we'll want to use
+// it like a reader):
+type MyZipEntry = io::Cursor<Box<[u8]>>;
+```
+
+Next, to fulfill 1, implement the `Store` trait:
+
+```rust
+impl Store for MyZip {
+    type File = MyZipEntry;
+    
+    fn open_path(&self, path: &Path) -> Result<MyZipEntry> {
+        // fetch the bytes from the file and return an Ok or an Err.
+        // ...
+    }
+}
+```
+
+Finally, to fulfill 2 and 3 you need to implement these two traits:
+
+```rust
+// This is needed in order to wrap the new file type in the File::Custom next:
+impl mini_fs::Custom for MyZipEntry {}
+
+impl From<MyZipEntry> for File {
+    fn from(ent: MyZipEntry) -> File {
+        File::Custom(Box::new(ent))
+    }
+}
+```
+
+This step has added an extra layer of dynamic typing because of the usage of `File::Custom` (Which uses `Any` internally so you can downcast to `MyZipEntry` later on).
+
+To remove this dynamic typing, either try to use another of the variants in the enum `File`, or fork and/or submit a Pull Request with support for a new file format.
+
+---
+
+And that is all, Now you can mount this store and/or use it as part of a tuple.
 
 ## License
 

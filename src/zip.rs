@@ -1,17 +1,36 @@
 use std::cell::RefCell;
 use std::fs;
-use std::io::{self, ErrorKind, Read, Seek, SeekFrom};
+use std::io::{self, Cursor, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::ops::DerefMut;
 use std::path::Path;
 
 use zip_::ZipArchive;
 
-use crate::file;
-use crate::Store;
+use crate::store::Store;
+use std::rc::Rc;
 
 /// Zip archive store.
 pub struct Zip<T: Read + Seek> {
     inner: RefCell<T>,
+}
+
+/// Entry in the Zip archive.
+pub struct ZipEntry {
+    inner: Cursor<Box<[u8]>>,
+}
+
+impl Read for ZipEntry {
+    #[inline]
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+impl Seek for ZipEntry {
+    #[inline]
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.inner.seek(pos)
+    }
 }
 
 impl Zip<fs::File> {
@@ -34,8 +53,8 @@ impl<T: Read + Seek> Zip<T> {
 }
 
 impl<T: Read + Seek> Store for Zip<T> {
-    type File = file::File;
-    fn open_path(&self, path: &Path) -> io::Result<file::File> {
+    type File = ZipEntry;
+    fn open_path(&self, path: &Path) -> io::Result<Self::File> {
         let mut file = self.inner.borrow_mut();
         file.seek(SeekFrom::Start(0))?;
 
@@ -48,6 +67,8 @@ impl<T: Read + Seek> Store for Zip<T> {
 
         let mut v = Vec::new();
         file.read_to_end(&mut v)?;
-        Ok(file::File::from_ram(v))
+        Ok(ZipEntry {
+            inner: Cursor::new(v.into()),
+        })
     }
 }

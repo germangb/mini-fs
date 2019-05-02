@@ -9,30 +9,35 @@
 //!
 //! ## Case sensitivity
 //!
-//! Paths defined by the virtual filesystem are **case sensitive**.
+//! Paths defined by the virtual filesystem are **case sensitive**¹.
+//!
+//! ¹ Except when you use `Local` which uses `std::fs` internally.
 use std::collections::{BTreeMap, LinkedList};
 use std::env;
 use std::fs;
-use std::io::{self, Error, ErrorKind};
+use std::io::{self, Cursor, Error, ErrorKind, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-pub use file::File;
 #[cfg(feature = "s3")]
 pub use s3::S3;
-pub use store::Store;
+use std::any::Any;
+pub use store::{MapFile, Store};
 #[cfg(feature = "tar")]
 pub use tar::Tar;
 #[cfg(feature = "zip")]
 pub use zip::Zip;
 
-/// Concrete file type
-mod file;
+#[cfg(feature = "tar")]
+use tar::TarEntry;
+#[cfg(feature = "zip")]
+use zip::ZipEntry;
+
 /// S3 bucket from Aws.
 #[cfg(feature = "s3")]
 pub mod s3;
 /// File storage generic.
-pub mod store;
+mod store;
 /// Tar file storage.
 #[cfg(feature = "tar")]
 pub mod tar;
@@ -40,20 +45,81 @@ pub mod tar;
 #[cfg(feature = "zip")]
 pub mod zip;
 
-struct Mount<F> {
+/// File you can Read bytes from.
+pub enum File {
+    Local(fs::File),
+    Ram(Cursor<Rc<[u8]>>),
+
+    #[cfg(feature = "tar")]
+    Zip(ZipEntry),
+    #[cfg(feature = "zip")]
+    Tar(TarEntry),
+
+    #[cfg(feature = "s3")]
+    S3(()),
+
+    // A layer of dynamic typing is added for custom Stores.
+    // That way, this cost is only paid for external implementations of Store.
+    Custom(Box<dyn Custom + Send>),
+}
+
+/// Custom file type.
+pub trait Custom: Any + Read + Seek {}
+
+impl From<fs::File> for File {
+    fn from(file: fs::File) -> Self {
+        File::Local(file)
+    }
+}
+
+impl From<Cursor<Rc<[u8]>>> for File {
+    fn from(file: Cursor<Rc<[u8]>>) -> Self {
+        File::Ram(file)
+    }
+}
+
+#[cfg(feature = "tar")]
+impl From<TarEntry> for File {
+    fn from(file: TarEntry) -> Self {
+        File::Tar(file)
+    }
+}
+
+#[cfg(feature = "zip")]
+impl From<ZipEntry> for File {
+    fn from(file: ZipEntry) -> Self {
+        File::Zip(file)
+    }
+}
+
+impl Read for File {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            File::Local(ref mut file) => file.read(buf),
+            File::Ram(ref mut file) => file.read(buf),
+            #[cfg(feature = "zip")]
+            File::Zip(ref mut file) => file.read(buf),
+            #[cfg(feature = "tar")]
+            File::Tar(ref mut file) => file.read(buf),
+            File::Custom(ref mut file) => file.read(buf),
+        }
+    }
+}
+
+struct Mount {
     path: PathBuf,
-    store: Box<dyn Store<File = F>>,
+    store: Box<dyn Store<File = File>>,
 }
 
 /// Virtual filesystem.
-pub struct MiniFs<F> {
-    mount: LinkedList<Mount<F>>,
+pub struct MiniFs {
+    mount: LinkedList<Mount>,
 }
 
-impl<F> Store for MiniFs<F> {
-    type File = F;
+impl Store for MiniFs {
+    type File = File;
 
-    fn open_path(&self, path: &Path) -> io::Result<F> {
+    fn open_path(&self, path: &Path) -> io::Result<File> {
         let next = self.mount.iter().rev().find_map(|mnt| {
             if let Ok(np) = path.strip_prefix(&mnt.path) {
                 Some((np, &mnt.store))
@@ -69,25 +135,26 @@ impl<F> Store for MiniFs<F> {
     }
 }
 
-impl<F> MiniFs<F> {
+impl MiniFs {
     pub fn new() -> Self {
         Self {
             mount: LinkedList::new(),
         }
     }
 
-    pub fn mount<P, S>(mut self, path: P, store: S) -> Self
+    pub fn mount<P, S, T>(mut self, path: P, store: S) -> Self
     where
         P: Into<PathBuf>,
-        S: Store<File = F> + 'static,
+        S: Store<File = T> + 'static,
+        T: Into<File>,
     {
         let path = path.into();
-        let store = Box::new(store);
+        let store = Box::new(store.map_file(|file| file.into()));
         self.mount.push_back(Mount { path, store });
         self
     }
 
-    pub fn umount<P>(&mut self, path: P) -> Option<Box<dyn Store<File = F>>>
+    pub fn umount<P>(&mut self, path: P) -> Option<Box<dyn Store<File = File>>>
     where
         P: AsRef<Path>,
     {
@@ -109,11 +176,22 @@ pub struct Local {
 }
 
 impl Store for Local {
-    type File = file::File;
+    type File = fs::File;
 
-    fn open_path(&self, path: &Path) -> io::Result<file::File> {
-        let file = fs::File::open(self.root.join(path))?;
-        Ok(file::File::from_std(file))
+    fn open_path(&self, path: &Path) -> io::Result<fs::File> {
+        fs::OpenOptions::new()
+            .create(false)
+            .read(true)
+            .write(false)
+            .open(self.root.join(path))
+    }
+
+    fn open_write_path(&self, path: &Path) -> io::Result<fs::File> {
+        fs::OpenOptions::new()
+            .create(false)
+            .read(false)
+            .write(true)
+            .open(self.root.join(path))
     }
 }
 
@@ -134,11 +212,11 @@ pub struct Ram {
 }
 
 impl Store for Ram {
-    type File = file::File;
+    type File = Cursor<Rc<[u8]>>;
 
-    fn open_path(&self, path: &Path) -> io::Result<file::File> {
+    fn open_path(&self, path: &Path) -> io::Result<Self::File> {
         match self.inner.get(path) {
-            Some(file) => Ok(file::File::from_ram(Rc::clone(file))),
+            Some(file) => Ok(Cursor::new(Rc::clone(file))),
             None => Err(Error::from(ErrorKind::NotFound)),
         }
     }

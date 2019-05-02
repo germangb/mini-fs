@@ -1,12 +1,14 @@
-use std::io::{self, ErrorKind};
+use std::io::{self, ErrorKind, Read, Seek, Write};
 use std::path::Path;
+
+pub trait StoreFile: Read + Write + Seek {}
 
 /// Generic file storage.
 pub trait Store {
     type File;
     fn open_path(&self, path: &Path) -> io::Result<Self::File>;
 
-    fn open_read_path(&self, path: &Path) -> io::Result<Self::File> {
+    fn open_write_path(&self, path: &Path) -> io::Result<Self::File> {
         self.open_path(path)
     }
 
@@ -18,12 +20,12 @@ pub trait Store {
         self.open_path(path.as_ref())
     }
 
-    fn open_read<P>(&self, path: P) -> io::Result<Self::File>
+    fn open_write<P>(&self, path: P) -> io::Result<Self::File>
     where
         P: AsRef<Path>,
         Self: Sized,
     {
-        self.open_read_path(path.as_ref())
+        self.open_write_path(path.as_ref())
     }
 
     fn map_file<F, U>(self, f: F) -> MapFile<Self, F>
@@ -32,6 +34,14 @@ pub trait Store {
         Self: Sized,
     {
         MapFile::new(self, f)
+    }
+}
+
+impl<T: Store> Store for Box<T> {
+    type File = T::File;
+
+    fn open_path(&self, path: &Path) -> io::Result<Self::File> {
+        unimplemented!()
     }
 }
 
@@ -58,7 +68,6 @@ where
     F: Fn(S::File) -> U,
 {
     type File = U;
-
     #[inline]
     fn open_path(&self, path: &Path) -> io::Result<Self::File> {
         match self.store.open_path(path) {
@@ -74,20 +83,22 @@ macro_rules! tuples {
         impl<$head, $($tail,)+> Store for ($head, $($tail,)+)
         where
             $head: Store,
-            $($tail: Store<File = $head::File>,)+
+            $($tail: Store,)+
+            $head::File: Into<$crate::File>,
+            $($tail::File: Into<$crate::File>,)+
         {
-            type File = $head::File;
+            type File = $crate::File;
             #[allow(non_snake_case)]
             fn open_path(&self, path: &Path) -> io::Result<Self::File> {
                 let ($head, $($tail,)+) = self;
                 match $head.open(path) {
-                    Ok(file) => return Ok(file),
+                    Ok(file) => return Ok(file.into()),
                     Err(ref err) if err.kind() == io::ErrorKind::NotFound => {},
                     Err(err) => return Err(err),
                 }
                 $(
                 match $tail.open(path) {
-                    Ok(file) => return Ok(file),
+                    Ok(file) => return Ok(file.into()),
                     Err(ref err) if err.kind() == io::ErrorKind::NotFound => {},
                     Err(err) => return Err(err),
                 }

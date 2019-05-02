@@ -2,13 +2,14 @@
 
 use std::path::Path;
 
-use mini_fs::{Store, Local, MiniFs};
+use mini_fs::tar::TarEntry;
+use mini_fs::{Local, MiniFs, Store, Tar};
 
 fn main() {
     let pwd = Local::pwd().unwrap();
-    let tmp = Local::new("/tmp/override");
+    let tar = Tar::open("tests/archive.tar.gz").unwrap();
 
-    let fs = MiniFs::new().mount("/local", (tmp, pwd));
+    let fs = MiniFs::new().mount("/a", (pwd, tar));
 
-    fs.open("/local/Cargo.toml").unwrap();
+    fs.open("/a/Cargo.toml").unwrap();
 }

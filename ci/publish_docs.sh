@@ -3,7 +3,7 @@
 GITHUB=mini-fs
 DOCS_DIR=.pages/
 
-cargo doc --features tar,zip,point_two
+cargo doc --all-features
 rm -rf $DOCS_DIR
 mv target/doc $DOCS_DIR
 

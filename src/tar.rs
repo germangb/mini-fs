@@ -8,7 +8,6 @@ use flate2::read::GzDecoder;
 use tar_::Archive;
 
 use crate::store::Store;
-use std::rc::Rc;
 
 /// Tar archive.
 pub struct Tar<F: Read + Seek> {

@@ -5,9 +5,9 @@
 [![docs.rs docs](https://docs.rs/mini-fs/badge.svg?style=flat-square)](https://docs.rs/mini-fs)
 [![Master docs](https://img.shields.io/badge/docs-master-blue.svg?style=flat-square)](https://germangb.github.io/mini-fs/)
 
-Filesystem abstraction.
+**mini-fs** is an extensible virtual filesystem for the application layer.
 
-Supports opening files from the local filesystem, as well as tar & zip archives.
+Supports reading from both the native filesystem, as well as Tar & Zip archives.
 
 ```toml
 [dependencies]
@@ -37,7 +37,12 @@ fs.umount("/data");
 
 ## Merging
 
-You can merge multiple file systems so they share the same mount point using a tuple.
+You can merge multiple file systems so they share the same mount point using a tuple. This allows you to override certain files from another location.
+
+Example use cases:
+
+* Config files with default fallbacks.
+* Replace assets on a game (modding).
 
 ```rust
 let a = Local::new("data/");
@@ -55,65 +60,58 @@ assert!(files.open("/files/hello.txt").is_ok());
 
 Note that if you tried to first mount `a`, followed by `b` on the same mount point, the first one would be shadowed by `b`.
 
-## Implement a new kind of storage
+## Extensible
 
 It is possible to define a new file store so you can read files from an archive format that is not directly supported by this crate.
 
-You'll have to do:
+You'll need to:
 
-1. Implement the trait `Store`, which has an associated type `Store::File` that it returns.
-2. Implement the trait `Custom` on the `Store::File` associated type.
-3. Implement `From<Store::File>` to build an `File` from the associated type.
+1. Define two types: the store itselt, and the type of file that it returns.
+2. Implement the `Store` trait on the first type, and `UserFile` on the second.
 
 ---
 
-For example, say you want to implement storage based on a Zip file (this crate already has an implementation, but let's say you want to improve it because it's really not that good...).
+For example, say you want to implement storage based on a Zip archive (this crate already has an implementation, but let's say you want to improve it).
 
 You'd need to implement something like the following:
 
 First, define the types for the storage and the files that it returns.
 ```rust
 use std::io;
-use mini_fs::{Store, File};
+use mini_fs::{Store, File, UserFile};
 
-// This is the struct representing the Zip archive.
+// This the type that will be mounted. It represents the Storage itself.
 struct MyZip { /*...*/ }
 
 // This example implementation of Zip will return a slice of bytes for each
-// entry in the archive (we wrap it in a Cursor because we'll want to use
-// it like a reader):
-type MyZipEntry = io::Cursor<Box<[u8]>>;
+// entry in the archive. This type must implement both io::Read and io::Seek
+// before implementing the UserFile trait.
+struct MyZipEntry(io::Cursor<Box<[u8]>>);
+
+impl UserFile for MyZipEntry {}
+
+// The file needs to implement IO (having the io::Cursor makes it easy)
+impl io::Read for MyZipEntry {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.read(buf)
+    }
+}
+
+impl io::Seek for MyZipEntry { /*...*/ }
 ```
 
-Next, to fulfill 1, implement the `Store` trait:
+And then, implement the `Store` trait:
 
 ```rust
 impl Store for MyZip {
     type File = MyZipEntry;
     
-    fn open_path(&self, path: &Path) -> Result<MyZipEntry> {
-        // fetch the bytes from the file and return an Ok or an Err.
+    fn open_path(&self, path: &Path) -> io::Result<MyZipEntry> {
+        // Fetch file
         // ...
     }
 }
 ```
-
-Finally, to fulfill 2 and 3 you need to implement these two traits:
-
-```rust
-// This is needed in order to wrap the new file type in the File::Custom next:
-impl mini_fs::Custom for MyZipEntry {}
-
-impl From<MyZipEntry> for File {
-    fn from(ent: MyZipEntry) -> File {
-        File::Custom(Box::new(ent))
-    }
-}
-```
-
-This step has added an extra layer of dynamic typing because of the usage of `File::Custom` (Which uses `Any` internally so you can downcast to `MyZipEntry` later on).
-
-To remove this dynamic typing, either try to use another of the variants in the enum `File`, or fork and/or submit a Pull Request with support for a new file format.
 
 ---
 

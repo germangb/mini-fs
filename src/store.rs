@@ -1,4 +1,4 @@
-use std::io::{self, ErrorKind, Read, Seek, Write};
+use std::io::{self, Read, Seek, Write};
 use std::path::Path;
 
 pub trait StoreFile: Read + Write + Seek {}
@@ -6,6 +6,7 @@ pub trait StoreFile: Read + Write + Seek {}
 /// Generic file storage.
 pub trait Store {
     type File;
+
     fn open_path(&self, path: &Path) -> io::Result<Self::File>;
 
     fn open_write_path(&self, path: &Path) -> io::Result<Self::File> {
@@ -34,14 +35,6 @@ pub trait Store {
         Self: Sized,
     {
         MapFile::new(self, f)
-    }
-}
-
-impl<T: Store> Store for Box<T> {
-    type File = T::File;
-
-    fn open_path(&self, path: &Path) -> io::Result<Self::File> {
-        unimplemented!()
     }
 }
 

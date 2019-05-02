@@ -1,4 +1,4 @@
-//! **mini-fs** is a filesystem abstraction layer.
+//! **mini-fs** is an extensible virtual filesystem for the application layer.
 //!
 //! Currently supported features include:
 //!
@@ -15,12 +15,10 @@
 use std::collections::{BTreeMap, LinkedList};
 use std::env;
 use std::fs;
-use std::io::{self, Cursor, Error, ErrorKind, Read, Seek, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-#[cfg(feature = "s3")]
-pub use s3::S3;
 use std::any::Any;
 pub use store::{MapFile, Store};
 #[cfg(feature = "tar")]
@@ -33,9 +31,6 @@ use tar::TarEntry;
 #[cfg(feature = "zip")]
 use zip::ZipEntry;
 
-/// S3 bucket from Aws.
-#[cfg(feature = "s3")]
-pub mod s3;
 /// File storage generic.
 mod store;
 /// Tar file storage.
@@ -48,23 +43,23 @@ pub mod zip;
 /// File you can Read bytes from.
 pub enum File {
     Local(fs::File),
-    Ram(Cursor<Rc<[u8]>>),
-
+    Ram(RamFile),
     #[cfg(feature = "tar")]
     Zip(ZipEntry),
     #[cfg(feature = "zip")]
     Tar(TarEntry),
-
-    #[cfg(feature = "s3")]
-    S3(()),
-
-    // A layer of dynamic typing is added for custom Stores.
-    // That way, this cost is only paid for external implementations of Store.
-    Custom(Box<dyn Custom + Send>),
+    // External types are dynamic
+    User(Box<dyn UserFile>),
 }
 
 /// Custom file type.
-pub trait Custom: Any + Read + Seek {}
+pub trait UserFile: Any + io::Read + io::Seek + Send {}
+
+impl<T: UserFile> From<T> for File {
+    fn from(file: T) -> Self {
+        File::User(Box::new(file))
+    }
+}
 
 impl From<fs::File> for File {
     fn from(file: fs::File) -> Self {
@@ -72,8 +67,8 @@ impl From<fs::File> for File {
     }
 }
 
-impl From<Cursor<Rc<[u8]>>> for File {
-    fn from(file: Cursor<Rc<[u8]>>) -> Self {
+impl From<RamFile> for File {
+    fn from(file: RamFile) -> Self {
         File::Ram(file)
     }
 }
@@ -92,7 +87,7 @@ impl From<ZipEntry> for File {
     }
 }
 
-impl Read for File {
+impl io::Read for File {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
             File::Local(ref mut file) => file.read(buf),
@@ -101,7 +96,21 @@ impl Read for File {
             File::Zip(ref mut file) => file.read(buf),
             #[cfg(feature = "tar")]
             File::Tar(ref mut file) => file.read(buf),
-            File::Custom(ref mut file) => file.read(buf),
+            File::User(ref mut file) => file.read(buf),
+        }
+    }
+}
+
+impl io::Seek for File {
+    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+        match self {
+            File::Local(ref mut file) => file.seek(pos),
+            File::Ram(ref mut file) => file.seek(pos),
+            #[cfg(feature = "zip")]
+            File::Zip(ref mut file) => file.seek(pos),
+            #[cfg(feature = "tar")]
+            File::Tar(ref mut file) => file.seek(pos),
+            File::User(ref mut file) => file.seek(pos),
         }
     }
 }
@@ -130,7 +139,7 @@ impl Store for MiniFs {
         if let Some((np, store)) = next {
             store.open_path(np)
         } else {
-            Err(Error::from(ErrorKind::NotFound))
+            Err(io::Error::from(io::ErrorKind::NotFound))
         }
     }
 }
@@ -211,13 +220,28 @@ pub struct Ram {
     inner: BTreeMap<PathBuf, Rc<[u8]>>,
 }
 
+/// In-memory file.
+pub struct RamFile(io::Cursor<Rc<[u8]>>);
+
+impl io::Read for RamFile {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.read(buf)
+    }
+}
+
+impl io::Seek for RamFile {
+    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+        self.0.seek(pos)
+    }
+}
+
 impl Store for Ram {
-    type File = Cursor<Rc<[u8]>>;
+    type File = RamFile;
 
     fn open_path(&self, path: &Path) -> io::Result<Self::File> {
         match self.inner.get(path) {
-            Some(file) => Ok(Cursor::new(Rc::clone(file))),
-            None => Err(Error::from(ErrorKind::NotFound)),
+            Some(file) => Ok(RamFile(io::Cursor::new(Rc::clone(file)))),
+            None => Err(io::Error::from(io::ErrorKind::NotFound)),
         }
     }
 }

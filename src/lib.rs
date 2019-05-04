@@ -4,14 +4,32 @@
 //!
 //! - Access to the local (native) filesystem.
 //! - In-memory filesystems.
-//! - Tar, tar.gz, and Zip archives.
-//! - Logically merging filesystems (useful for overriding some files)
+//! - Read from tar, tar.gz, and zip archives.
+//! - Filesystem overlays.
 //!
 //! ## Case sensitivity
 //!
 //! Paths defined by the virtual filesystem are **case sensitive**¹.
 //!
 //! ¹ Except when you use `Local` which uses `std::fs` internally.
+//!
+//! ## Example
+//!
+//! ```no_run
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use mini_fs::{Local, MiniFs, Store, Zip};
+//!
+//! let gfx = Local::new("./res/images");
+//! let sfx = Zip::open("archive.tar.gz")?;
+//!
+//! let fs = MiniFs::new()
+//!     .mount("/assets/gfx", gfx)
+//!     .mount("/assets/sfx", sfx);
+//!
+//! let file = fs.open("/assets/gfx/trash.gif")?;
+//! # Ok(())
+//! # }
+//! ```
 use std::collections::{BTreeMap, LinkedList};
 use std::env;
 use std::fs;
@@ -26,6 +44,7 @@ pub use tar::Tar;
 #[cfg(feature = "zip")]
 pub use zip::Zip;
 
+use std::ffi::OsString;
 #[cfg(feature = "tar")]
 use tar::TarEntry;
 #[cfg(feature = "zip")]
@@ -40,7 +59,7 @@ pub mod tar;
 #[cfg(feature = "zip")]
 pub mod zip;
 
-/// File you can Read bytes from.
+/// File you can seek and read from.
 pub enum File {
     Local(fs::File),
     Ram(RamFile),
@@ -113,6 +132,14 @@ impl io::Seek for File {
             File::User(ref mut file) => file.seek(pos),
         }
     }
+}
+
+/// File or directory entry.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Entry {
+    pub file_name: OsString,
+    pub path: PathBuf,
+    pub directory: bool,
 }
 
 struct Mount {

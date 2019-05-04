@@ -28,9 +28,6 @@ pub trait Store {
     }
 }
 
-/// Maps file type using a closure.
-///
-/// See [`Store::map_file`](trait.Store.html#method.map_file).
 pub(crate) struct MapFile<S, F> {
     store: S,
     clo: F,

@@ -35,7 +35,7 @@ let file = fs.open("/data/example.gif")?;
 fs.umount("/data");
 ```
 
-## Merging
+## Overlay filesystem
 
 You can merge multiple file systems so they share the same mount point using a tuple. This allows you to override files between locations.
 

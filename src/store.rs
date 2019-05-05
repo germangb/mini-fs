@@ -6,20 +6,22 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Entry {
     pub path: PathBuf,
-    pub entry_type: EntryKind,
+    pub kind: EntryKind,
 }
 
 /// Type of file entry.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum EntryKind {
     File,
-    Directory,
+    Dir,
+    /* TODO symlinks
+     *Sym, */
 }
 
 /// Iterator of file entries.
 pub struct Entries<'a> {
-    inner: Box<dyn Iterator<Item = io::Result<Entry>>>,
-    _phantom: PhantomData<&'a ()>,
+    inner: Box<dyn Iterator<Item = io::Result<Entry>> + 'a>,
+    //_phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> Entries<'a> {
@@ -30,11 +32,11 @@ impl<'a> Entries<'a> {
     pub fn new<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = <Entries<'a> as Iterator>::Item>,
-        <I as IntoIterator>::IntoIter: 'static,
+        <I as IntoIterator>::IntoIter: 'a,
     {
         Self {
             inner: Box::new(iter.into_iter()),
-            _phantom: PhantomData,
+            //_phantom: PhantomData,
         }
     }
 }
@@ -58,11 +60,13 @@ pub trait Store {
     /// Order is not defined, so it may be depth first, breadth first, or any
     /// arbitrary order. The provided implementation returns an empty
     /// iterator.
-    fn entries(&self) -> Entries {
-        Entries::empty()
+    fn entries<P>(&self, path: P) -> io::Result<Entries>
+    where
+        Self: Sized,
+        P: AsRef<Path>,
+    {
+        Ok(Entries::empty())
     }
-
-    // The methods below aren't part of the trait object.
 
     fn open<P>(&self, path: P) -> io::Result<Self::File>
     where
@@ -102,6 +106,13 @@ where
     }
 }
 
+macro_rules! entries {
+    ($self:ident, $path:expr, $head:ident,) => { $self.0.entries($path)? };
+    ($self:ident, $path:expr, $head:ident, $($tail:ident,)+) => {
+        $self.0.entries($path)?.chain(entries!($self, $path, $($tail,)+) )
+    }
+}
+
 macro_rules! tuples {
     ($head:ident,) => {};
     ($head:ident, $($tail:ident,)+) => {
@@ -130,6 +141,11 @@ macro_rules! tuples {
                 )+
 
                 Err(io::Error::from(io::ErrorKind::NotFound))
+            }
+
+            fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
+                // chain all elements from the tuple
+                Ok(Entries::new(entries!(self, path.as_ref(), $head, $($tail,)+)))
             }
         }
         tuples!($($tail,)+);

@@ -145,6 +145,29 @@ pub struct MiniFs {
     mount: LinkedList<Mount>,
 }
 
+use std::collections::linked_list::Iter;
+use std::iter::FlatMap;
+
+struct MiniFsEntries<'a, 'b, F>
+where
+    F: FnMut(&'a Mount) -> Entries<'b>,
+    'b: 'a,
+{
+    inner: FlatMap<Iter<'a, Mount>, Entries<'b>, F>,
+}
+
+impl<'a, 'b, F> Iterator for MiniFsEntries<'a, 'b, F>
+where
+    F: FnMut(&'a Mount) -> Entries<'b>,
+    'b: 'a,
+{
+    type Item = io::Result<Entry>;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
+
 impl Store for MiniFs {
     type File = File;
 
@@ -162,9 +185,20 @@ impl Store for MiniFs {
             Err(io::Error::from(io::ErrorKind::NotFound))
         }
     }
+
+    /*
+    TODO
+    fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
+        let path = path.as_ref();
+        //Ok(Entries::new(self.mounts().flat_map(|m| m.entries(path))))
+    }
+    */
 }
 
 impl MiniFs {
+    fn mounts(&self) -> impl Iterator<Item = &Box<Store<File = File>>> {
+        self.mount.iter().map(|m| &m.store)
+    }
     pub fn new() -> Self {
         Self {
             mount: LinkedList::new(),
@@ -213,6 +247,25 @@ impl Store for Local {
             .read(true)
             .write(false)
             .open(self.root.join(path))
+    }
+
+    fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
+        let entries = fs::read_dir(&self.root)?.map(|ent| {
+            let entry = ent?;
+            let path = entry.path();
+            let file_type = entry.file_type()?;
+            // TODO synlinks
+            let kind = if file_type.is_dir() {
+                EntryKind::Dir
+            } else if file_type.is_symlink() {
+                EntryKind::File
+            } else {
+                EntryKind::File
+            };
+            Ok(Entry { path, kind })
+        });
+
+        Ok(Entries::new(entries))
     }
 }
 

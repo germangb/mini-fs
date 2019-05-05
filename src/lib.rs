@@ -1,4 +1,4 @@
-//! **mini-fs** is an extensible virtual filesystem for the application layer.
+//! `mini-fs` is an extensible virtual filesystem for the application layer.
 //!
 //! Currently supported features include:
 //!
@@ -9,9 +9,12 @@
 //!
 //! ## Case sensitivity
 //!
-//! Paths defined by the virtual filesystem are **case sensitive**¹.
+//! All implementations of [`Store`] from this crate use **case sensitive**¹
+//! paths. However, you are free to implement custom stores where paths are case
+//! insensitive.
 //!
-//! ¹ Except when you use `Local` which uses `std::fs` internally.
+//! ¹ Except maybe [`Local`], which uses [`std::fs`] internally and is subject
+//! to the underlying OS.
 //!
 //! ## Example
 //!
@@ -20,7 +23,7 @@
 //! use mini_fs::{Local, MiniFs, Store, Zip};
 //!
 //! let gfx = Local::new("./res/images");
-//! let sfx = Zip::open("archive.tar.gz")?;
+//! let sfx = Zip::open("archive.zip")?;
 //!
 //! let assets = MiniFs::new().mount("/gfx", gfx).mount("/sfx", sfx);
 //!
@@ -30,28 +33,33 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! ## Security
+//!
+//! Don't use this crate in applications where security is a critical factor.
+//! [`Local`] in particular might be vulnerable to [directory traversal
+//! attacks][dir], so it's best not to use it directly in a static file server,
+//! for example.
+//!
+//! [`std::fs`]: https://doc.rust-lang.org/std/fs/index.html
+//! [`Store`]: ./trait.Store.html
+//! [`Local`]: ./struct.Local.html
+//! [dir]: https://en.wikipedia.org/wiki/Directory_traversal_attack
 use std::collections::{BTreeMap, LinkedList};
-use std::env;
-use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::{env, fs, io};
 
 pub use store::*;
 #[cfg(feature = "tar")]
 pub use tar::Tar;
-#[cfg(feature = "zip")]
-pub use zip::Zip;
-
-use std::ffi::OsString;
-use std::marker::PhantomData;
 #[cfg(feature = "tar")]
 use tar::TarEntry;
 #[cfg(feature = "zip")]
+pub use zip::Zip;
+#[cfg(feature = "zip")]
 use zip::ZipEntry;
 
-///// Directory tree.
-//pub mod dir_tree;
 /// File storage generic.
 mod store;
 /// Tar file storage.
@@ -145,29 +153,6 @@ pub struct MiniFs {
     mount: LinkedList<Mount>,
 }
 
-use std::collections::linked_list::Iter;
-use std::iter::FlatMap;
-
-struct MiniFsEntries<'a, 'b, F>
-where
-    F: FnMut(&'a Mount) -> Entries<'b>,
-    'b: 'a,
-{
-    inner: FlatMap<Iter<'a, Mount>, Entries<'b>, F>,
-}
-
-impl<'a, 'b, F> Iterator for MiniFsEntries<'a, 'b, F>
-where
-    F: FnMut(&'a Mount) -> Entries<'b>,
-    'b: 'a,
-{
-    type Item = io::Result<Entry>;
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
-    }
-}
-
 impl Store for MiniFs {
     type File = File;
 
@@ -186,19 +171,21 @@ impl Store for MiniFs {
         }
     }
 
-    /*
-    TODO
-    fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
-        let path = path.as_ref();
-        //Ok(Entries::new(self.mounts().flat_map(|m| m.entries(path))))
+    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+        // FIXME creating a new PathBuf because otherwise I'm getting lifetime mismatch
+        // errors.
+        let path = path.to_path_buf();
+
+        Ok(Entries::new(self.mount.iter().flat_map(
+            move |m| match path.strip_prefix(&m.path) {
+                Ok(np) => m.store.entries_path(np).unwrap(),
+                Err(_) => Entries::empty(),
+            },
+        )))
     }
-    */
 }
 
 impl MiniFs {
-    fn mounts(&self) -> impl Iterator<Item = &Box<Store<File = File>>> {
-        self.mount.iter().map(|m| &m.store)
-    }
     pub fn new() -> Self {
         Self {
             mount: LinkedList::new(),
@@ -249,10 +236,16 @@ impl Store for Local {
             .open(self.root.join(path))
     }
 
-    fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
-        let entries = fs::read_dir(&self.root)?.map(|ent| {
+    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+        // FIXME cloned because lifetimes.
+        let root = self.root.clone();
+        let entries = fs::read_dir(self.root.join(path))?.map(move |ent| {
             let entry = ent?;
-            let path = entry.path();
+            let path = entry
+                .path()
+                .strip_prefix(&self.root)
+                .map(Path::to_path_buf)
+                .expect("Error striping path suffix.");
             let file_type = entry.file_type()?;
             // TODO synlinks
             let kind = if file_type.is_dir() {

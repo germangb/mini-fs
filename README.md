@@ -11,7 +11,7 @@ Supports reading from both the native filesystem, as well as Tar & Zip archives.
 
 ```toml
 [dependencies]
-mini-fs = "0.2"
+mini-fs = "0.1"
 ```
 
 An example showcasing the API:

@@ -1,3 +1,4 @@
+use std::collections::btree_set::BTreeSet;
 use std::io::{self, Read, Seek, Write};
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
@@ -14,18 +15,17 @@ pub struct Entry {
 pub enum EntryKind {
     File,
     Dir,
-    /* TODO symlinks
+    /*TODO symlinks
      *Sym, */
 }
 
 /// Iterator of file entries.
 pub struct Entries<'a> {
     inner: Box<dyn Iterator<Item = io::Result<Entry>> + 'a>,
-    //_phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> Entries<'a> {
-    fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self::new(std::iter::empty())
     }
 
@@ -36,7 +36,6 @@ impl<'a> Entries<'a> {
     {
         Self {
             inner: Box::new(iter.into_iter()),
-            //_phantom: PhantomData,
         }
     }
 }
@@ -45,7 +44,7 @@ impl Iterator for Entries<'_> {
     type Item = io::Result<Entry>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        unimplemented!()
+        self.inner.next()
     }
 }
 
@@ -60,12 +59,16 @@ pub trait Store {
     /// Order is not defined, so it may be depth first, breadth first, or any
     /// arbitrary order. The provided implementation returns an empty
     /// iterator.
+    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+        Ok(Entries::empty())
+    }
+
     fn entries<P>(&self, path: P) -> io::Result<Entries>
     where
         Self: Sized,
         P: AsRef<Path>,
     {
-        Ok(Entries::empty())
+        self.entries_path(path.as_ref())
     }
 
     fn open<P>(&self, path: P) -> io::Result<Self::File>
@@ -102,6 +105,42 @@ where
         match self.store.open_path(path) {
             Ok(file) => Ok((self.clo)(file)),
             Err(err) => Err(err),
+        }
+    }
+}
+
+// iterator + set to take care of repeating elements.
+// TODO consider other data structures for the set.
+struct TupleEntries<I> {
+    inner: I,
+    set: BTreeSet<PathBuf>,
+}
+
+impl<I> TupleEntries<I> {
+    fn new(inner: I) -> Self {
+        Self {
+            inner,
+            set: BTreeSet::new(),
+        }
+    }
+}
+
+impl<I> Iterator for TupleEntries<I>
+where
+    I: Iterator<Item = io::Result<Entry>>,
+{
+    type Item = <I as Iterator>::Item;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.inner.next() {
+                None => return None,
+                Some(Err(e)) => return Some(Err(e)),
+                Some(Ok(file)) => {
+                    if self.set.insert(file.path.clone()) {
+                        return Some(Ok(file));
+                    }
+                }
+            }
         }
     }
 }
@@ -145,11 +184,14 @@ macro_rules! tuples {
 
             fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
                 // chain all elements from the tuple
-                Ok(Entries::new(entries!(self, path.as_ref(), $head, $($tail,)+)))
+                let raw = entries!(self, path.as_ref(), $head, $($tail,)+);
+                Ok(Entries::new(TupleEntries::new(raw)))
             }
         }
         tuples!($($tail,)+);
     };
 }
 
+// Implement tuples of up to 11 elements.
+// Up to 11 because 12 or more looks bad on the rendered docs.
 tuples! { A, B, C, D, E, F, G, H, I, J, K, }

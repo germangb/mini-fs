@@ -1,14 +1,26 @@
 use std::io::{self, Read, Seek, Write};
 use std::path::Path;
 
+use crate::Entry;
+
 /// Generic file storage.
 pub trait Store {
     type File;
 
+    fn entries_path(&self, path: &Path) -> Option<io::Result<Vec<Entry>>> {
+        None
+    }
+
     fn open_path(&self, path: &Path) -> io::Result<Self::File>;
 
-    fn open_write_path(&self, path: &Path) -> io::Result<Self::File> {
-        self.open_path(path)
+    // methods below aren't part of the trait object
+
+    fn entries<P>(&self, path: P) -> Option<io::Result<Vec<Entry>>>
+    where
+        Self: Sized,
+        P: AsRef<Path>,
+    {
+        self.entries_path(path.as_ref())
     }
 
     fn open<P>(&self, path: P) -> io::Result<Self::File>
@@ -17,14 +29,6 @@ pub trait Store {
         Self: Sized,
     {
         self.open_path(path.as_ref())
-    }
-
-    fn open_write<P>(&self, path: P) -> io::Result<Self::File>
-    where
-        P: AsRef<Path>,
-        Self: Sized,
-    {
-        self.open_write_path(path.as_ref())
     }
 }
 
@@ -91,5 +95,4 @@ macro_rules! tuples {
     };
 }
 
-// implement for tuples of up to size 8
-tuples! { A, B, C, D, E, F, G, H, }
+tuples! { A, B, C, D, E, F, G, H, I, J, K, }

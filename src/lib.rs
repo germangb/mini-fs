@@ -22,11 +22,11 @@
 //! let gfx = Local::new("./res/images");
 //! let sfx = Zip::open("archive.tar.gz")?;
 //!
-//! let fs = MiniFs::new()
-//!     .mount("/assets/gfx", gfx)
-//!     .mount("/assets/sfx", sfx);
+//! let assets = MiniFs::new().mount("/gfx", gfx).mount("/sfx", sfx);
 //!
-//! let file = fs.open("/assets/gfx/trash.gif")?;
+//! let root = MiniFs::new().mount("/assets", assets);
+//!
+//! let file = root.open("/assets/gfx/trash.gif")?;
 //! # Ok(())
 //! # }
 //! ```
@@ -37,7 +37,6 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use std::any::Any;
 pub use store::Store;
 #[cfg(feature = "tar")]
 pub use tar::Tar;
@@ -45,11 +44,14 @@ pub use tar::Tar;
 pub use zip::Zip;
 
 use std::ffi::OsString;
+use std::marker::PhantomData;
 #[cfg(feature = "tar")]
 use tar::TarEntry;
 #[cfg(feature = "zip")]
 use zip::ZipEntry;
 
+///// Directory tree.
+//pub mod dir_tree;
 /// File storage generic.
 mod store;
 /// Tar file storage.
@@ -59,20 +61,73 @@ pub mod tar;
 #[cfg(feature = "zip")]
 pub mod zip;
 
-/// File you can seek and read from.
-pub enum File {
-    Local(fs::File),
-    Ram(RamFile),
-    #[cfg(feature = "tar")]
-    Zip(ZipEntry),
-    #[cfg(feature = "zip")]
-    Tar(TarEntry),
-    // External types are dynamic
-    User(Box<dyn UserFile>),
+macro_rules! file {
+    (
+        $(#[$($meta:meta)+])*
+        pub enum $enum_name:ident {
+            $(
+                $(#[$($var_meta:meta)+])*
+                $var_name:ident($var_type:ty),
+            )*
+        }
+    ) => {
+        $(#[$($meta)+])*
+        pub enum $enum_name {
+            $(
+                $(#[$($var_meta)+])*
+                $var_name($var_type),
+            )*
+        }
+
+        $(
+            $(#[$($var_meta)+])*
+            impl From<$var_type> for $enum_name {
+                fn from(file: $var_type) -> Self {
+                    $enum_name::$var_name(file)
+                }
+            }
+        )*
+
+        impl io::Read for $enum_name {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                match self {
+                    $(
+                        $(#[$($var_meta)+])*
+                        $enum_name::$var_name(ref mut file) => file.read(buf),
+                    )*
+                }
+            }
+        }
+
+        impl io::Seek for File {
+            fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+                match self {
+                    $(
+                        $(#[$($var_meta)+])*
+                        $enum_name::$var_name(ref mut file) => file.seek(pos),
+                    )*
+                }
+            }
+        }
+    }
+}
+
+file! {
+    /// File you can seek and read from.
+    pub enum File {
+        Local(fs::File),
+        Ram(RamFile),
+        #[cfg(feature = "zip")]
+        Zip(ZipEntry),
+        #[cfg(feature = "tar")]
+        Tar(TarEntry),
+        // External types are dynamic
+        User(Box<dyn UserFile>),
+    }
 }
 
 /// Custom file type.
-pub trait UserFile: Any + io::Read + io::Seek + Send {}
+pub trait UserFile: std::any::Any + io::Read + io::Seek + Send {}
 
 impl<T: UserFile> From<T> for File {
     fn from(file: T) -> Self {
@@ -80,66 +135,18 @@ impl<T: UserFile> From<T> for File {
     }
 }
 
-impl From<fs::File> for File {
-    fn from(file: fs::File) -> Self {
-        File::Local(file)
-    }
-}
-
-impl From<RamFile> for File {
-    fn from(file: RamFile) -> Self {
-        File::Ram(file)
-    }
-}
-
-#[cfg(feature = "tar")]
-impl From<TarEntry> for File {
-    fn from(file: TarEntry) -> Self {
-        File::Tar(file)
-    }
-}
-
-#[cfg(feature = "zip")]
-impl From<ZipEntry> for File {
-    fn from(file: ZipEntry) -> Self {
-        File::Zip(file)
-    }
-}
-
-impl io::Read for File {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self {
-            File::Local(ref mut file) => file.read(buf),
-            File::Ram(ref mut file) => file.read(buf),
-            #[cfg(feature = "zip")]
-            File::Zip(ref mut file) => file.read(buf),
-            #[cfg(feature = "tar")]
-            File::Tar(ref mut file) => file.read(buf),
-            File::User(ref mut file) => file.read(buf),
-        }
-    }
-}
-
-impl io::Seek for File {
-    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
-        match self {
-            File::Local(ref mut file) => file.seek(pos),
-            File::Ram(ref mut file) => file.seek(pos),
-            #[cfg(feature = "zip")]
-            File::Zip(ref mut file) => file.seek(pos),
-            #[cfg(feature = "tar")]
-            File::Tar(ref mut file) => file.seek(pos),
-            File::User(ref mut file) => file.seek(pos),
-        }
-    }
+/// Type of file entry.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum EntryKind {
+    File,
+    Directory,
 }
 
 /// File or directory entry.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Entry {
-    pub file_name: OsString,
     pub path: PathBuf,
-    pub directory: bool,
+    pub entry_type: EntryKind,
 }
 
 struct Mount {
@@ -219,14 +226,6 @@ impl Store for Local {
             .create(false)
             .read(true)
             .write(false)
-            .open(self.root.join(path))
-    }
-
-    fn open_write_path(&self, path: &Path) -> io::Result<fs::File> {
-        fs::OpenOptions::new()
-            .create(false)
-            .read(false)
-            .write(true)
             .open(self.root.join(path))
     }
 }

@@ -1,27 +1,68 @@
 use std::io::{self, Read, Seek, Write};
-use std::path::Path;
+use std::marker::PhantomData;
+use std::path::{Path, PathBuf};
 
-use crate::Entry;
+/// File or directory entry.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Entry {
+    pub path: PathBuf,
+    pub entry_type: EntryKind,
+}
+
+/// Type of file entry.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum EntryKind {
+    File,
+    Directory,
+}
+
+/// Iterator of file entries.
+pub struct Entries<'a> {
+    inner: Box<dyn Iterator<Item = io::Result<Entry>>>,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> Entries<'a> {
+    fn empty() -> Self {
+        Self::new(std::iter::empty())
+    }
+
+    pub fn new<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = <Entries<'a> as Iterator>::Item>,
+        <I as IntoIterator>::IntoIter: 'static,
+    {
+        Self {
+            inner: Box::new(iter.into_iter()),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl Iterator for Entries<'_> {
+    type Item = io::Result<Entry>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unimplemented!()
+    }
+}
 
 /// Generic file storage.
 pub trait Store {
     type File;
 
-    fn entries_path(&self, path: &Path) -> Option<io::Result<Vec<Entry>>> {
-        None
-    }
-
     fn open_path(&self, path: &Path) -> io::Result<Self::File>;
 
-    // methods below aren't part of the trait object
-
-    fn entries<P>(&self, path: P) -> Option<io::Result<Vec<Entry>>>
-    where
-        Self: Sized,
-        P: AsRef<Path>,
-    {
-        self.entries_path(path.as_ref())
+    /// Iterate over the entries of the Store.
+    ///
+    /// Order is not defined, so it may be depth first, breadth first, or any
+    /// arbitrary order. The provided implementation returns an empty
+    /// iterator.
+    fn entries(&self) -> Entries {
+        Entries::empty()
     }
+
+    // The methods below aren't part of the trait object.
 
     fn open<P>(&self, path: P) -> io::Result<Self::File>
     where

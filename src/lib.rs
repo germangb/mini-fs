@@ -37,7 +37,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-pub use store::Store;
+pub use store::*;
 #[cfg(feature = "tar")]
 pub use tar::Tar;
 #[cfg(feature = "zip")]
@@ -133,20 +133,6 @@ impl<T: UserFile> From<T> for File {
     fn from(file: T) -> Self {
         File::User(Box::new(file))
     }
-}
-
-/// Type of file entry.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum EntryKind {
-    File,
-    Directory,
-}
-
-/// File or directory entry.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Entry {
-    pub path: PathBuf,
-    pub entry_type: EntryKind,
 }
 
 struct Mount {

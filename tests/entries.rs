@@ -12,8 +12,7 @@ fn mini_fs_entries() {
     assert!(files.entries("/nope").unwrap().next().is_none());
     assert!(files.entries("/files").unwrap().next().is_some());
 
-    /*
-    let entries = files
+    let mut entries = files
         .entries("/files")
         .unwrap()
         .collect::<Result<Vec<_>>>()
@@ -21,10 +20,11 @@ fn mini_fs_entries() {
 
     assert_eq!(3, entries.len());
 
+    entries.sort_by_key(|e| e.path.clone());
+
     assert_eq!(OsStr::new("bar"), entries[0].path);
     assert_eq!(OsStr::new("baz"), entries[1].path);
     assert_eq!(OsStr::new("foo"), entries[2].path);
-    */
 }
 
 #[test]

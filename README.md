@@ -17,6 +17,7 @@ mini-fs = "0.1"
 An example showcasing the API:
 
 ```rust
+use mini_fs::prelude::*;
 use mini_fs::{Store, Local, Tar, MiniFs};
 
 // Declare some file systems.

@@ -4,7 +4,8 @@ use std::path::Path;
 #[test]
 #[cfg(feature = "zip")]
 fn zip() {
-    use mini_fs::{Store, Zip};
+    use mini_fs::prelude::*;
+    use mini_fs::Zip;
 
     let file = include_bytes!("archive.zip");
     let zip = Zip::new(Cursor::new(&file[..]));
@@ -19,4 +20,15 @@ fn zip() {
         assert_eq!("hello\n", hello_content);
         assert_eq!("world!\n", world_content);
     }
+}
+
+// TODO enable test
+//#[test]
+#[cfg(feature = "zip")]
+fn index() {
+    use mini_fs::prelude::*;
+    use mini_fs::Zip;
+
+    let file = include_bytes!("archive.tar.gz");
+    let tar = Zip::new(Cursor::new(&file[..])).index().unwrap();
 }

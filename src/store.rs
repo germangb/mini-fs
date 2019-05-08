@@ -60,25 +60,23 @@ pub trait Store {
     /// arbitrary order. The provided implementation returns an empty
     /// iterator.
     fn entries_path(&self, path: &Path) -> io::Result<Entries> {
-        Ok(Entries::empty())
-    }
-
-    fn entries<P>(&self, path: P) -> io::Result<Entries>
-    where
-        Self: Sized,
-        P: AsRef<Path>,
-    {
-        self.entries_path(path.as_ref())
-    }
-
-    fn open<P>(&self, path: P) -> io::Result<Self::File>
-    where
-        P: AsRef<Path>,
-        Self: Sized,
-    {
-        self.open_path(path.as_ref())
+        //Ok(Entries::empty())
+        panic!("noooooooope")
     }
 }
+
+/// Convenient methods on top of Store.
+pub trait StoreExt: Store {
+    fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
+        <Self as Store>::entries_path(self, path.as_ref())
+    }
+
+    fn open<P: AsRef<Path>>(&self, path: P) -> io::Result<Self::File> {
+        <Self as Store>::open_path(self, path.as_ref())
+    }
+}
+
+impl<T: Store> StoreExt for T {}
 
 pub(crate) struct MapFile<S, F> {
     store: S,
@@ -106,6 +104,11 @@ where
             Ok(file) => Ok((self.clo)(file)),
             Err(err) => Err(err),
         }
+    }
+
+    #[inline]
+    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+        self.store.entries_path(path)
     }
 }
 
@@ -146,9 +149,9 @@ where
 }
 
 macro_rules! entries {
-    ($self:ident, $path:expr, $head:ident,) => { $self.0.entries($path)? };
+    ($self:ident, $path:expr, $head:ident,) => { $self.0.entries_path($path)? };
     ($self:ident, $path:expr, $head:ident, $($tail:ident,)+) => {
-        $self.0.entries($path)?.chain(entries!($self, $path, $($tail,)+) )
+        $self.0.entries_path($path)?.chain(entries!($self, $path, $($tail,)+) )
     }
 }
 
@@ -166,13 +169,13 @@ macro_rules! tuples {
             #[allow(non_snake_case)]
             fn open_path(&self, path: &Path) -> io::Result<Self::File> {
                 let ($head, $($tail,)+) = self;
-                match $head.open(path) {
+                match $head.open_path(path) {
                     Ok(file) => return Ok(file.into()),
                     Err(ref err) if err.kind() == io::ErrorKind::NotFound => {},
                     Err(err) => return Err(err),
                 }
                 $(
-                match $tail.open(path) {
+                match $tail.open_path(path) {
                     Ok(file) => return Ok(file.into()),
                     Err(ref err) if err.kind() == io::ErrorKind::NotFound => {},
                     Err(err) => return Err(err),
@@ -182,9 +185,9 @@ macro_rules! tuples {
                 Err(io::Error::from(io::ErrorKind::NotFound))
             }
 
-            fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
+            fn entries_path(&self, path: &Path) -> io::Result<Entries> {
                 // chain all elements from the tuple
-                let raw = entries!(self, path.as_ref(), $head, $($tail,)+);
+                let raw = entries!(self, path, $head, $($tail,)+);
                 Ok(Entries::new(TupleEntries::new(raw)))
             }
         }

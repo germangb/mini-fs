@@ -93,4 +93,10 @@ impl<T: Read + Seek> Tar<T> {
         }
         Err(io::Error::from(ErrorKind::NotFound))
     }
+
+    /// Build a file index to be able to call the "entries" trait method on this
+    /// archive.
+    pub fn index(self) -> io::Result<Self> {
+        unimplemented!()
+    }
 }

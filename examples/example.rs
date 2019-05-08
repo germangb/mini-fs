@@ -2,8 +2,8 @@
 
 use std::path::Path;
 
-use mini_fs::tar::TarEntry;
-use mini_fs::{Local, MiniFs, Store, Tar};
+use mini_fs::prelude::*;
+use mini_fs::{Local, MiniFs, Tar};
 
 fn main() {
     let pwd = Local::pwd().unwrap();

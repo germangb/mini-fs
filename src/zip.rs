@@ -50,6 +50,12 @@ impl<T: Read + Seek> Zip<T> {
             inner: RefCell::new(inner),
         }
     }
+
+    /// Build a file index to be able to call the "entries" trait method on this
+    /// archive.
+    pub fn index(self) -> io::Result<Self> {
+        unimplemented!()
+    }
 }
 
 impl<T: Read + Seek> Store for Zip<T> {

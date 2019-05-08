@@ -20,7 +20,8 @@
 //!
 //! ```no_run
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use mini_fs::{Local, MiniFs, Store, Zip};
+//! use mini_fs::prelude::*;
+//! use mini_fs::{Local, MiniFs, Zip};
 //!
 //! let gfx = Local::new("./res/images");
 //! let sfx = Zip::open("archive.zip")?;
@@ -50,7 +51,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, fs, io};
 
-pub use store::*;
+pub use store::{Entries, Entry, EntryKind, Store, StoreExt};
 #[cfg(feature = "tar")]
 pub use tar::Tar;
 #[cfg(feature = "tar")]
@@ -68,6 +69,9 @@ pub mod tar;
 /// Zip file storage.
 #[cfg(feature = "zip")]
 pub mod zip;
+pub mod prelude {
+    pub use crate::store::StoreExt;
+}
 
 macro_rules! file {
     (
@@ -239,6 +243,7 @@ impl Store for Local {
     fn entries_path(&self, path: &Path) -> io::Result<Entries> {
         // FIXME cloned because lifetimes.
         let root = self.root.clone();
+
         let entries = fs::read_dir(self.root.join(path))?.map(move |ent| {
             let entry = ent?;
             let path = entry
@@ -247,6 +252,7 @@ impl Store for Local {
                 .map(Path::to_path_buf)
                 .expect("Error striping path suffix.");
             let file_type = entry.file_type()?;
+
             // TODO synlinks
             let kind = if file_type.is_dir() {
                 EntryKind::Dir
@@ -255,6 +261,7 @@ impl Store for Local {
             } else {
                 EntryKind::File
             };
+
             Ok(Entry { path, kind })
         });
 
@@ -306,7 +313,7 @@ impl Store for Ram {
 
 impl Ram {
     pub fn new() -> Self {
-        Ram {
+        Self {
             inner: BTreeMap::new(),
         }
     }

@@ -1,16 +1,18 @@
-use mini_fs::{EntryKind, Local, MiniFs, Store};
+use mini_fs::prelude::*;
+use mini_fs::{EntryKind, Local, MiniFs};
 use std::ffi::OsStr;
 use std::io::Result;
 
-// TODO enable test
-//#[test]
+#[test]
 fn mini_fs_entries() {
     let local = Local::new("./tests/local");
 
     let files = MiniFs::new().mount("/files", local);
 
     assert!(files.entries("/nope").unwrap().next().is_none());
+    assert!(files.entries("/files").unwrap().next().is_some());
 
+    /*
     let entries = files
         .entries("/files")
         .unwrap()
@@ -22,6 +24,7 @@ fn mini_fs_entries() {
     assert_eq!(OsStr::new("bar"), entries[0].path);
     assert_eq!(OsStr::new("baz"), entries[1].path);
     assert_eq!(OsStr::new("foo"), entries[2].path);
+    */
 }
 
 #[test]
@@ -37,6 +40,34 @@ fn tuple_no_repeats() {
         .unwrap();
 
     assert_eq!(3, entries.len())
+}
+
+#[test]
+fn local_trait_object_entries() {
+    use mini_fs::prelude::*;
+    use mini_fs::{Local, Store};
+    use std::path::Path;
+
+    let local: Box<dyn Store<File = <Local as Store>::File>> =
+        Box::new(Local::new("./tests/local"));
+
+    let mut entries = local
+        .entries_path(Path::new("./"))
+        .expect("entry iterator")
+        .collect::<Result<Vec<_>>>()
+        .expect("iterator result");
+
+    entries.sort_by_key(|e| e.path.clone());
+
+    assert_eq!(3, entries.len());
+
+    assert_eq!(OsStr::new("bar"), entries[0].path);
+    assert_eq!(OsStr::new("baz"), entries[1].path);
+    assert_eq!(OsStr::new("foo"), entries[2].path);
+
+    assert_eq!(EntryKind::File, entries[0].kind);
+    assert_eq!(EntryKind::Dir, entries[1].kind);
+    assert_eq!(EntryKind::File, entries[2].kind);
 }
 
 #[test]

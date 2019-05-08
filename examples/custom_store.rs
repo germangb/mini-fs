@@ -1,4 +1,6 @@
+use mini_fs::prelude::*;
 use mini_fs::{MiniFs, Store, UserFile};
+
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek, SeekFrom};
 use std::path::Path;
 

@@ -54,14 +54,10 @@ use std::{env, fs, io};
 pub use store::{Entries, Entry, EntryKind, Store, StoreExt};
 #[cfg(feature = "tar")]
 pub use tar::Tar;
-#[cfg(feature = "tar")]
-use tar::TarEntry;
 #[cfg(feature = "zip")]
 pub use zip::Zip;
-#[cfg(feature = "zip")]
-use zip::ZipEntry;
 
-/// File storage generic.
+mod index;
 mod store;
 /// Tar file storage.
 #[cfg(feature = "tar")]
@@ -130,9 +126,9 @@ file! {
         Local(fs::File),
         Ram(RamFile),
         #[cfg(feature = "zip")]
-        Zip(ZipEntry),
+        Zip(zip::ZipEntry),
         #[cfg(feature = "tar")]
-        Tar(TarEntry),
+        Tar(tar::TarEntry),
         // External types are dynamic
         User(Box<dyn UserFile>),
     }

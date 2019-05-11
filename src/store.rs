@@ -60,19 +60,18 @@ pub trait Store {
     /// arbitrary order. The provided implementation returns an empty
     /// iterator.
     fn entries_path(&self, path: &Path) -> io::Result<Entries> {
-        //Ok(Entries::empty())
-        panic!("noooooooope")
+        Ok(Entries::empty())
     }
 }
 
 /// Convenient methods on top of Store.
 pub trait StoreExt: Store {
     fn entries<P: AsRef<Path>>(&self, path: P) -> io::Result<Entries> {
-        <Self as Store>::entries_path(self, path.as_ref())
+        <Self as Store>::entries_path(self, &crate::index::normalize_path(path.as_ref()))
     }
 
     fn open<P: AsRef<Path>>(&self, path: P) -> io::Result<Self::File> {
-        <Self as Store>::open_path(self, path.as_ref())
+        <Self as Store>::open_path(self, &crate::index::normalize_path(path.as_ref()))
     }
 }
 

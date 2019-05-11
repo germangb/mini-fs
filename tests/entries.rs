@@ -52,7 +52,7 @@ fn local_trait_object_entries() {
         Box::new(Local::new("./tests/local"));
 
     let mut entries = local
-        .entries_path(Path::new("./"))
+        .entries_path(Path::new("./././"))
         .expect("entry iterator")
         .collect::<Result<Vec<_>>>()
         .expect("iterator result");

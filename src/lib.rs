@@ -51,13 +51,15 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, fs, io};
 
+//pub use index::{Index, IndexEntries};
 pub use store::{Entries, Entry, EntryKind, Store, StoreExt};
 #[cfg(feature = "tar")]
 pub use tar::Tar;
 #[cfg(feature = "zip")]
 pub use zip::Zip;
 
-mod index;
+/// Directory index.
+pub mod index;
 mod store;
 /// Tar file storage.
 #[cfg(feature = "tar")]
@@ -65,6 +67,7 @@ pub mod tar;
 /// Zip file storage.
 #[cfg(feature = "zip")]
 pub mod zip;
+/// Convenient library imports.
 pub mod prelude {
     pub use crate::store::StoreExt;
 }

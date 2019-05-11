@@ -7,7 +7,6 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Component, Path, PathBuf};
 
 struct DirNode<M> {
-    name: Option<OsString>, // None for root
     files: BTreeMap<OsString, M>,
     dirs: BTreeMap<OsString, DirNode<M>>,
 }
@@ -15,7 +14,6 @@ struct DirNode<M> {
 impl<M> DirNode<M> {
     fn new(name: Option<OsString>) -> Self {
         Self {
-            name,
             files: BTreeMap::new(),
             dirs: BTreeMap::new(),
         }
@@ -103,6 +101,11 @@ impl<M> Index<M> {
         let path = normalize_path(path.as_ref()).to_path_buf();
         get(path.into_iter().collect(), &self.root)
     }
+
+    pub fn clear(&mut self) {
+        self.root.files.clear();
+        self.root.dirs.clear();
+    }
 }
 
 fn entries<'a, M>(mut parts: LinkedList<&OsStr>, node: &'a DirNode<M>) -> Entries<'a, M> {
@@ -139,7 +142,6 @@ fn entries<'a, M>(mut parts: LinkedList<&OsStr>, node: &'a DirNode<M>) -> Entrie
 }
 
 fn insert<M>(mut parts: LinkedList<&OsStr>, node: &mut DirNode<M>, meta: M) {
-    //panic!("{:?}", parts);
     let f0 = parts.pop_front();
     match (f0, parts.front()) {
         (None, _) => {}

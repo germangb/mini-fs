@@ -261,7 +261,10 @@ impl Store for Local {
                 EntryKind::File
             };
 
-            Ok(Entry { path, kind })
+            Ok(Entry {
+                name: path.into_os_string(),
+                kind,
+            })
         });
 
         Ok(Entries::new(entries))
@@ -281,7 +284,7 @@ impl Local {
 
 /// In-memory file storage
 pub struct Ram {
-    inner: BTreeMap<PathBuf, Rc<[u8]>>,
+    index: index::Index<Rc<[u8]>>,
 }
 
 /// In-memory file.
@@ -303,30 +306,35 @@ impl Store for Ram {
     type File = RamFile;
 
     fn open_path(&self, path: &Path) -> io::Result<Self::File> {
-        match self.inner.get(path) {
+        match self.index.get(path) {
             Some(file) => Ok(RamFile(io::Cursor::new(Rc::clone(file)))),
             None => Err(io::Error::from(io::ErrorKind::NotFound)),
         }
+    }
+
+    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+        Ok(Entries::new(self.index.entries(path).map(|ent| {
+            Ok(Entry {
+                name: ent.name.to_os_string(),
+                kind: ent.kind,
+            })
+        })))
     }
 }
 
 impl Ram {
     pub fn new() -> Self {
         Self {
-            inner: BTreeMap::new(),
+            index: index::Index::new(),
         }
     }
 
     pub fn clear(&mut self) {
-        self.inner.clear();
+        self.index.clear();
     }
 
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    pub fn rm<P: AsRef<Path>>(&mut self, path: P) -> Option<Rc<[u8]>> {
-        self.inner.remove(path.as_ref())
+    pub fn rm<P: AsRef<Path>>(&mut self, path: P) {
+        // TODO
     }
 
     pub fn touch<P, F>(&mut self, path: P, file: F)
@@ -334,6 +342,10 @@ impl Ram {
         P: Into<PathBuf>,
         F: Into<Rc<[u8]>>,
     {
-        self.inner.insert(path.into(), file.into());
+        self.index.insert(path.into(), file.into());
+    }
+
+    pub fn index(self) -> Self {
+        self
     }
 }

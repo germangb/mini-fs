@@ -20,11 +20,11 @@ fn mini_fs_entries() {
 
     assert_eq!(3, entries.len());
 
-    entries.sort_by_key(|e| e.path.clone());
+    entries.sort_by_key(|e| e.name.clone());
 
-    assert_eq!(OsStr::new("bar"), entries[0].path);
-    assert_eq!(OsStr::new("baz"), entries[1].path);
-    assert_eq!(OsStr::new("foo"), entries[2].path);
+    assert_eq!(OsStr::new("bar"), entries[0].name);
+    assert_eq!(OsStr::new("baz"), entries[1].name);
+    assert_eq!(OsStr::new("foo"), entries[2].name);
 }
 
 #[test]
@@ -57,13 +57,13 @@ fn local_trait_object_entries() {
         .collect::<Result<Vec<_>>>()
         .expect("iterator result");
 
-    entries.sort_by_key(|e| e.path.clone());
+    entries.sort_by_key(|e| e.name.clone());
 
     assert_eq!(3, entries.len());
 
-    assert_eq!(OsStr::new("bar"), entries[0].path);
-    assert_eq!(OsStr::new("baz"), entries[1].path);
-    assert_eq!(OsStr::new("foo"), entries[2].path);
+    assert_eq!(OsStr::new("bar"), entries[0].name);
+    assert_eq!(OsStr::new("baz"), entries[1].name);
+    assert_eq!(OsStr::new("foo"), entries[2].name);
 
     assert_eq!(EntryKind::File, entries[0].kind);
     assert_eq!(EntryKind::Dir, entries[1].kind);
@@ -80,13 +80,13 @@ fn local_entries() {
         .collect::<Result<Vec<_>>>()
         .expect("iterator result");
 
-    entries.sort_by_key(|e| e.path.clone());
+    entries.sort_by_key(|e| e.name.clone());
 
     assert_eq!(3, entries.len());
 
-    assert_eq!(OsStr::new("bar"), entries[0].path);
-    assert_eq!(OsStr::new("baz"), entries[1].path);
-    assert_eq!(OsStr::new("foo"), entries[2].path);
+    assert_eq!(OsStr::new("bar"), entries[0].name);
+    assert_eq!(OsStr::new("baz"), entries[1].name);
+    assert_eq!(OsStr::new("foo"), entries[2].name);
 
     assert_eq!(EntryKind::File, entries[0].kind);
     assert_eq!(EntryKind::Dir, entries[1].kind);
@@ -96,6 +96,6 @@ fn local_entries() {
 
     assert_eq!(
         OsStr::new("baz/foobar"),
-        entries.next().unwrap().map(|e| e.path).unwrap()
+        entries.next().unwrap().map(|e| e.name).unwrap()
     );
 }

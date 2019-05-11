@@ -1,4 +1,5 @@
 use std::collections::btree_set::BTreeSet;
+use std::ffi::OsString;
 use std::io::{self, Read, Seek, Write};
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
@@ -6,7 +7,7 @@ use std::path::{Path, PathBuf};
 /// File or directory entry.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Entry {
-    pub path: PathBuf,
+    pub name: OsString,
     pub kind: EntryKind,
 }
 
@@ -115,7 +116,7 @@ where
 // TODO consider other data structures for the set.
 struct TupleEntries<I> {
     inner: I,
-    set: BTreeSet<PathBuf>,
+    set: BTreeSet<OsString>,
 }
 
 impl<I> TupleEntries<I> {
@@ -138,7 +139,7 @@ where
                 None => return None,
                 Some(Err(e)) => return Some(Err(e)),
                 Some(Ok(file)) => {
-                    if self.set.insert(file.path.clone()) {
+                    if self.set.insert(file.name.clone()) {
                         return Some(Ok(file));
                     }
                 }

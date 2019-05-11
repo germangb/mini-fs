@@ -6,12 +6,20 @@ use std::path::Path;
 
 use zip_::ZipArchive;
 
+use crate::index::Index;
 use crate::store::Store;
+use crate::{Entries, Entry};
 use std::rc::Rc;
 
 /// Zip archive store.
+///
+/// # Remarks
+///
+/// When used with a `std::fs::File`, the file will remain open for the lifetime
+/// of the object (it will be closed when Tar is dropped)
 pub struct Zip<T: Read + Seek> {
     inner: RefCell<T>,
+    index: Option<Index<()>>,
 }
 
 /// Entry in the Zip archive.
@@ -48,13 +56,27 @@ impl<T: Read + Seek> Zip<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner: RefCell::new(inner),
+            index: None,
         }
     }
 
-    /// Build a file index to be able to call the "entries" trait method on this
-    /// archive.
-    pub fn index(self) -> io::Result<Self> {
-        unimplemented!()
+    /// Index the contents of the archive.
+    ///
+    /// After an index has been built, you can list the entries of the zip
+    /// archive via the  `entries` method.
+    pub fn index(mut self) -> io::Result<Self> {
+        let mut index = Index::new();
+        let mut file = self.inner.borrow_mut();
+        file.seek(SeekFrom::Start(0))?;
+        let mut archive = ZipArchive::new(file.deref_mut())?;
+        for i in 0..archive.len() {
+            let file = archive.by_index(i)?;
+            let path = file.sanitized_name();
+            index.insert(path, ());
+        }
+        self.index = Some(index);
+        drop(file);
+        Ok(self)
     }
 }
 
@@ -76,5 +98,17 @@ impl<T: Read + Seek> Store for Zip<T> {
         Ok(ZipEntry {
             inner: Cursor::new(v.into()),
         })
+    }
+
+    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+        if let Some(ref idx) = self.index {
+            Ok(Entries::new(idx.entries(path).map(|ent| {
+                let name = ent.name.to_os_string();
+                let kind = ent.kind;
+                Ok(Entry { name, kind })
+            })))
+        } else {
+            panic!("You have to call the `Zip::index` method on this zip archive before you can list its entries.")
+        }
     }
 }

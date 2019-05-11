@@ -22,13 +22,19 @@ fn zip() {
     }
 }
 
-// TODO enable test
+// FIXME test doesn't pass
 //#[test]
 #[cfg(feature = "zip")]
-fn index() {
+fn zip_entries() {
     use mini_fs::prelude::*;
     use mini_fs::Zip;
 
-    let file = include_bytes!("archive.tar.gz");
-    let tar = Zip::new(Cursor::new(&file[..])).index().unwrap();
+    let file = include_bytes!("archive2.zip");
+    let zip = Zip::new(Cursor::new(&file[..])).index().unwrap();
+
+    assert_eq!(
+        2,
+        zip.entries("nested/.").unwrap().collect::<Vec<_>>().len()
+    );
+    assert_eq!(3, zip.entries(".").unwrap().collect::<Vec<_>>().len());
 }

@@ -5,13 +5,12 @@ use std::path::Path;
 fn index_insert_get() {
     let mut index = Index::new();
 
-    index.insert("/a/foo.txt", 1);
-    index.insert("/a/b/c.txt", 2);
-    index.insert("/bar.txt", 4);
-    index.insert("/baz.txt", 8);
+    index.insert("a/foo.txt", 1);
+    index.insert("a/b/c.txt", 2);
+    index.insert("bar.txt", 4);
+    index.insert("baz.txt", 8);
 
     #[rustfmt::skip]
-    // - (root)
     //   |- a
     //   |  |- foo.txt
     //   |  |- b
@@ -20,26 +19,25 @@ fn index_insert_get() {
     //   |- bar.txt
     //   |- baz.txt
 
-    assert_eq!(Some(&1), index.get("/a/foo.txt"));
-    assert_eq!(Some(&2), index.get("/a/b/c.txt"));
-    assert_eq!(Some(&4), index.get("/bar.txt"));
-    assert_eq!(Some(&8), index.get("/baz.txt"));
-    assert_eq!(None, index.get("/nope"));
+    assert_eq!(Some(&1), index.get("a/foo.txt"));
+    assert_eq!(Some(&2), index.get("a/b/c.txt"));
+    assert_eq!(Some(&4), index.get("bar.txt"));
+    assert_eq!(Some(&8), index.get("baz.txt"));
+    assert_eq!(None, index.get("nope"));
 }
 
 #[test]
 fn index_entries() {
     let mut index = Index::new();
 
-    index.insert("/a/foo.txt", ());
-    index.insert("/a/b/c.txt", ());
-    index.insert("/a/b/d.txt", ());
-    index.insert("/foo.txt", ());
-    index.insert("/bar.txt", ());
-    index.insert("/baz.txt", ());
+    index.insert("a/foo.txt", ());
+    index.insert("a/b/c.txt", ());
+    index.insert("a/b/d.txt", ());
+    index.insert("foo.txt", ());
+    index.insert("bar.txt", ());
+    index.insert("baz.txt", ());
 
     #[rustfmt::skip]
-    // - (root)
     //   |- a
     //   |  |- foo.txt
     //   |  |- b
@@ -50,9 +48,9 @@ fn index_entries() {
     //   |- bar.txt
     //   |- baz.txt
 
-    assert_eq!(4, index.entries("/").collect::<Vec<_>>().len());
-    assert_eq!(2, index.entries("/a").collect::<Vec<_>>().len());
-    assert_eq!(2, index.entries("/a/b/").collect::<Vec<_>>().len());
+    assert_eq!(4, index.entries(".").collect::<Vec<_>>().len());
+    assert_eq!(2, index.entries("a").collect::<Vec<_>>().len());
+    assert_eq!(2, index.entries("a/b/").collect::<Vec<_>>().len());
 }
 
 #[test]

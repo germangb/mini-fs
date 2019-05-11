@@ -25,7 +25,7 @@ pub struct Index<M> {
     root: DirNode<M>,
 }
 
-/// Iterator over the entries of an index.
+/// Index entries iterator.
 pub struct Entries<'a, M> {
     files: Option<Iter<'a, OsString, M>>,
     dirs: Option<Iter<'a, OsString, DirNode<M>>>,
@@ -82,24 +82,27 @@ impl<M> Index<M> {
     where
         P: AsRef<Path>,
     {
-        let path = normalize_path(path.as_ref()).to_path_buf();
-        entries(path.into_iter().collect(), &self.root)
+        let mut root = Path::new("/").to_path_buf();
+        root.push(normalize_path(path.as_ref()).to_path_buf());
+        entries(root.into_iter().collect(), &self.root)
     }
 
     pub fn insert<P>(&mut self, path: P, meta: M)
     where
         P: Into<PathBuf>,
     {
-        let path = normalize_path(&path.into()).to_path_buf();
-        insert(path.into_iter().collect(), &mut self.root, meta)
+        let mut root = Path::new("/").to_path_buf();
+        root.push(normalize_path(&path.into()).to_path_buf());
+        insert(root.into_iter().collect(), &mut self.root, meta)
     }
 
     pub fn get<P>(&self, path: P) -> Option<&M>
     where
         P: AsRef<Path>,
     {
-        let path = normalize_path(path.as_ref()).to_path_buf();
-        get(path.into_iter().collect(), &self.root)
+        let mut root = Path::new("/").to_path_buf();
+        root.push(normalize_path(path.as_ref()).to_path_buf());
+        get(root.into_iter().collect(), &self.root)
     }
 
     pub fn clear(&mut self) {
@@ -186,6 +189,7 @@ fn get<'a, M>(mut parts: LinkedList<&OsStr>, node: &'a DirNode<M>) -> Option<&'a
 /// assert_eq!(Path::new("/"), normalize_path(Path::new("/a/b/c/../../..")),);
 /// assert_eq!(Path::new("foo"), normalize_path(Path::new("./foo")),);
 /// ```
+#[doc(hidden)]
 pub fn normalize_path(path: &Path) -> Cow<Path> {
     use std::path::Component::*;
     if path.components().any(|c| match c {

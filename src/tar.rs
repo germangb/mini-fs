@@ -7,12 +7,19 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use tar_::Archive;
 
+use crate::index::Index;
 use crate::store::Store;
 
 /// Tar archive.
+///
+/// # Remarks
+///
+/// When used with a `std::fs::File`, the file will remain open for the lifetime
+/// of the object (it will be closed when Tar is dropped)
 pub struct Tar<F: Read + Seek> {
     gzip: Cell<bool>,
     inner: RefCell<F>,
+    index: Option<Index<SeekFrom>>,
 }
 
 /// Entry in the Tar archive.
@@ -76,6 +83,7 @@ impl<T: Read + Seek> Tar<T> {
         Self {
             inner: RefCell::new(inner),
             gzip: Cell::new(false),
+            index: None,
         }
     }
 

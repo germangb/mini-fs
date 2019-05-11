@@ -58,7 +58,9 @@ pub use tar::Tar;
 #[cfg(feature = "zip")]
 pub use zip::Zip;
 
+// TODO module is hidden for now.
 /// Directory index.
+#[doc(hidden)]
 pub mod index;
 mod store;
 /// Tar file storage.

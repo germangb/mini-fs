@@ -195,6 +195,5 @@ macro_rules! tuples {
     };
 }
 
-// Implement tuples of up to 11 elements.
-// Up to 11 because 12 or more looks bad on the rendered docs.
+// Implement tuples of up to 11 elements (12 or more looks bad on the rustdoc)
 tuples! { A, B, C, D, E, F, G, H, I, J, K, }

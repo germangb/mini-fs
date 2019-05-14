@@ -47,8 +47,7 @@ fn tar_gz() {
     }
 }
 
-// TODO enable test
-//#[test]
+#[test]
 #[cfg(feature = "tar")]
 fn index() {
     use mini_fs::prelude::*;

@@ -23,7 +23,18 @@ fn index_insert_get() {
     assert_eq!(Some(&2), index.get("a/b/c.txt"));
     assert_eq!(Some(&4), index.get("bar.txt"));
     assert_eq!(Some(&8), index.get("baz.txt"));
+
+    assert_eq!(Some(&1), index.get("./a/foo.txt"));
+    assert_eq!(Some(&2), index.get("./a/b/c.txt"));
+    assert_eq!(Some(&4), index.get("./bar.txt"));
+    assert_eq!(Some(&8), index.get("./baz.txt"));
+
     assert_eq!(None, index.get("nope"));
+
+    assert_eq!(None, index.get("/a/foo.txt"));
+    assert_eq!(None, index.get("/a/b/c.txt"));
+    assert_eq!(None, index.get("/bar.txt"));
+    assert_eq!(None, index.get("/baz.txt"));
 }
 
 #[test]

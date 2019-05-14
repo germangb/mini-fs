@@ -22,8 +22,7 @@ fn zip() {
     }
 }
 
-// FIXME test doesn't pass
-//#[test]
+#[test]
 #[cfg(feature = "zip")]
 fn zip_entries() {
     use mini_fs::prelude::*;

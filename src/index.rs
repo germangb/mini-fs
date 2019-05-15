@@ -102,6 +102,13 @@ impl<M> Index<M> {
         get(path.into_iter().collect(), &self.root)
     }
 
+    pub fn contains<P>(&self, path: P) -> bool
+    where
+        P: AsRef<Path>,
+    {
+        self.get(path).is_some()
+    }
+
     pub fn clear(&mut self) {
         self.root.files.clear();
         self.root.dirs.clear();

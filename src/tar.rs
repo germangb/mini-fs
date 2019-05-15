@@ -9,13 +9,14 @@ use tar_::Archive;
 
 use crate::index::Index;
 use crate::store::Store;
+use crate::{Entries, Entry};
 
 /// Tar archive.
 ///
 /// # Remarks
 ///
 /// When used with a `std::fs::File`, the file will remain open for the lifetime
-/// of the object (it will be closed when Tar is dropped)
+/// of the Tar.
 pub struct Tar<F: Read + Seek> {
     gzip: Cell<bool>,
     inner: RefCell<F>,
@@ -42,26 +43,38 @@ impl Seek for TarEntry {
 
 impl<T: Read + Seek> Store for Tar<T> {
     type File = TarEntry;
+
     fn open_path(&self, path: &Path) -> io::Result<Self::File> {
         if self.gzip.get() {
             let mut file = self.inner.borrow_mut();
             file.seek(SeekFrom::Start(0))?;
-            self.open_read(path, GzDecoder::new(file.deref_mut()))
+            self.open_read(path, GzDecoder::new(&mut *file))
         } else {
             let mut file = self.inner.borrow_mut();
             file.seek(SeekFrom::Start(0))?;
-            match self.open_read(path, file.deref_mut()) {
-                Err(e) => {
-                    if e.kind() == ErrorKind::NotFound {
-                        return Err(io::Error::from(ErrorKind::NotFound));
-                    } else {
-                        self.gzip.set(true);
-                        drop(file);
-                        self.open_path(path)
-                    }
-                }
+            match self.open_read(path, &mut *file) {
                 Ok(entry) => Ok(entry),
+                Err(ref e) if e.kind() == ErrorKind::NotFound => {
+                    Err(io::Error::from(ErrorKind::NotFound))
+                }
+                Err(e) => {
+                    self.gzip.set(true);
+                    drop(file);
+                    self.open_path(path)
+                }
             }
+        }
+    }
+
+    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+        if let Some(ref idx) = self.index {
+            Ok(Entries::new(idx.entries(path).map(|ent| {
+                let name = ent.name.to_os_string();
+                let kind = ent.kind;
+                Ok(Entry { name, kind })
+            })))
+        } else {
+            panic!("You have to call the `Zip::index` method on this zip archive before you can list its entries.")
         }
     }
 }
@@ -102,8 +115,10 @@ impl<T: Read + Seek> Tar<T> {
         Err(io::Error::from(ErrorKind::NotFound))
     }
 
-    /// Build a file index to be able to call the "entries" trait method on this
-    /// archive.
+    /// Index the contents of the archive.
+    ///
+    /// Having an index allows you to list the contents of the archive using the
+    /// entries_path and entries methods.
     pub fn index(self) -> io::Result<Self> {
         Ok(self)
     }

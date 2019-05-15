@@ -71,7 +71,7 @@ pub mod tar;
 pub mod zip;
 /// Convenient library imports.
 pub mod prelude {
-    pub use crate::store::StoreExt;
+    pub use crate::store::{Store, StoreExt};
 }
 
 macro_rules! file {

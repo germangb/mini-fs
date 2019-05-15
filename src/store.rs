@@ -58,8 +58,7 @@ pub trait Store {
     /// Iterate over the entries of the Store.
     ///
     /// Order is not defined, so it may be depth first, breadth first, or any
-    /// arbitrary order. The provided implementation returns an empty
-    /// iterator.
+    /// arbitrary order.
     fn entries_path(&self, path: &Path) -> io::Result<Entries> {
         Ok(Entries::empty())
     }

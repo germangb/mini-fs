@@ -16,7 +16,7 @@ use std::rc::Rc;
 /// # Remarks
 ///
 /// When used with a `std::fs::File`, the file will remain open for the lifetime
-/// of the object (it will be closed when Tar is dropped)
+/// of the Zip.
 pub struct Zip<T: Read + Seek> {
     inner: RefCell<T>,
     index: Option<Index<()>>,
@@ -62,16 +62,17 @@ impl<T: Read + Seek> Zip<T> {
 
     /// Index the contents of the archive.
     ///
-    /// After an index has been built, you can list the entries of the zip
-    /// archive via the  `entries` method.
+    /// Having an index allows you to list the contents of the archive using the
+    /// entries_path and entries methods.
     pub fn index(mut self) -> io::Result<Self> {
         let mut index = Index::new();
         let mut file = self.inner.borrow_mut();
         file.seek(SeekFrom::Start(0))?;
-        let mut archive = ZipArchive::new(file.deref_mut())?;
+        let mut archive = ZipArchive::new(&mut *file)?;
         for i in 0..archive.len() {
             let file = archive.by_index(i)?;
             let path = file.sanitized_name();
+
             index.insert(path, ());
         }
         self.index = Some(index);
@@ -86,7 +87,7 @@ impl<T: Read + Seek> Store for Zip<T> {
         let mut file = self.inner.borrow_mut();
         file.seek(SeekFrom::Start(0))?;
 
-        let mut archive = ZipArchive::new(file.deref_mut())?;
+        let mut archive = ZipArchive::new(&mut *file)?;
         let name = path.to_str().ok_or(io::Error::new(
             ErrorKind::Other,
             "Utf8 path conversion error.",

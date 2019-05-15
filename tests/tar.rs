@@ -49,7 +49,7 @@ fn tar_gz() {
 
 #[test]
 #[cfg(feature = "tar")]
-fn index() {
+fn tar_entries() {
     use mini_fs::prelude::*;
     use mini_fs::Tar;
 

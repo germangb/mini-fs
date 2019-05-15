@@ -38,6 +38,29 @@ fn index_insert_get() {
 }
 
 #[test]
+fn index_entries_2() {
+    let mut index = Index::new();
+
+    index.insert("nested/", ());
+    index.insert("nested/hello.txt", ());
+    index.insert("nested/world.txt", ());
+    index.insert("nested", ());
+    index.insert("hello.txt", ());
+    index.insert("world.txt", ());
+
+    #[rustfmt::skip]
+    //   |- nested
+    //   |  |- hello.txt
+    //   |  |- world.txt
+    //   |
+    //   |- hello.txt
+    //   |- world.txt
+
+    assert_eq!(2, index.entries("nested").collect::<Vec<_>>().len());
+    assert_eq!(3, index.entries(".").collect::<Vec<_>>().len());
+}
+
+#[test]
 fn index_entries() {
     let mut index = Index::new();
 

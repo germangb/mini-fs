@@ -82,27 +82,24 @@ impl<M> Index<M> {
     where
         P: AsRef<Path>,
     {
-        let mut root = Path::new("/").to_path_buf();
-        root.push(normalize_path(path.as_ref()).to_path_buf());
-        entries(root.into_iter().collect(), &self.root)
+        let path = normalize_path(path.as_ref()).to_path_buf();
+        entries(path.into_iter().collect(), &self.root)
     }
 
     pub fn insert<P>(&mut self, path: P, meta: M)
     where
         P: Into<PathBuf>,
     {
-        let mut root = Path::new("/").to_path_buf();
-        root.push(normalize_path(&path.into()).to_path_buf());
-        insert(root.into_iter().collect(), &mut self.root, meta)
+        let path = normalize_path(&path.into()).to_path_buf();
+        insert(path.into_iter().collect(), &mut self.root, meta)
     }
 
     pub fn get<P>(&self, path: P) -> Option<&M>
     where
         P: AsRef<Path>,
     {
-        let mut root = Path::new("/").to_path_buf();
-        root.push(normalize_path(path.as_ref()).to_path_buf());
-        get(root.into_iter().collect(), &self.root)
+        let path = normalize_path(path.as_ref()).to_path_buf();
+        get(path.into_iter().collect(), &self.root)
     }
 
     pub fn clear(&mut self) {
@@ -115,29 +112,16 @@ fn entries<'a, M>(mut parts: LinkedList<&OsStr>, node: &'a DirNode<M>) -> Entrie
     let f0 = parts.pop_front();
     match (f0, parts.front()) {
         (None, _) => Entries {
-            files: None,
-            dirs: None,
+            files: Some(node.files.iter()),
+            dirs: Some(node.dirs.iter()),
         },
-        (Some(dir), None) => {
-            if let Some(node) = node.dirs.get(dir) {
-                Entries {
-                    files: Some(node.files.iter()),
-                    dirs: Some(node.dirs.iter()),
-                }
-            } else {
-                Entries {
-                    files: None,
-                    dirs: None,
-                }
-            }
-        }
-        (Some(dir), Some(_)) => {
+        (Some(dir), _) => {
             if let Some(node) = node.dirs.get(dir) {
                 entries(parts, node)
             } else {
                 Entries {
-                    files: Some(node.files.iter()),
-                    dirs: Some(node.dirs.iter()),
+                    files: None,
+                    dirs: None,
                 }
             }
         }
@@ -149,9 +133,12 @@ fn insert<M>(mut parts: LinkedList<&OsStr>, node: &mut DirNode<M>, meta: M) {
     match (f0, parts.front()) {
         (None, _) => {}
         (Some(file), None) => {
-            node.files.insert(file.to_os_string(), meta);
+            if node.dirs.get(file).is_none() {
+                node.files.insert(file.to_os_string(), meta);
+            }
         }
         (Some(dir), Some(_)) => {
+            node.files.remove(dir);
             if let Some(dir) = node.dirs.get_mut(dir) {
                 insert(parts, dir, meta)
             } else {

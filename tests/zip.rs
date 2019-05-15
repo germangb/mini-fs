@@ -31,9 +31,6 @@ fn zip_entries() {
     let file = include_bytes!("archive2.zip");
     let zip = Zip::new(Cursor::new(&file[..])).index().unwrap();
 
-    assert_eq!(
-        2,
-        zip.entries("nested/.").unwrap().collect::<Vec<_>>().len()
-    );
+    assert_eq!(2, zip.entries("nested").unwrap().collect::<Vec<_>>().len());
     assert_eq!(3, zip.entries(".").unwrap().collect::<Vec<_>>().len());
 }

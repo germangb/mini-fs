@@ -171,8 +171,8 @@ fn get<'a, M>(mut parts: VecDeque<&OsStr>, node: &'a Node<M>) -> Option<&'a M> {
     }
 }
 
-/// Normalizes path by removing references to the parent (`..`) and the current
-/// (`.`) directory.
+/// Normalizes path by removing any references to the parent (`..`) and the
+/// current (`.`) directory.
 ///
 /// ```
 /// use mini_fs::index::normalize_path;

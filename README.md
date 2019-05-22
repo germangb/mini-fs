@@ -11,14 +11,14 @@ Supports reading from both the native filesystem, as well as Tar & Zip archives.
 
 ```toml
 [dependencies]
-mini-fs = "0.1"
+mini-fs = "0.2"
 ```
 
 An example showcasing the API:
 
 ```rust
 use mini_fs::prelude::*;
-use mini_fs::{Store, LocalFs, TarFs, MiniFs};
+use mini_fs::{LocalFs, TarFs, MiniFs};
 
 // Declare some file systems.
 let local = LocalFs::pwd()?;
@@ -31,9 +31,6 @@ let mut fs = MiniFs::new()
 
 // To open (read) files:
 let file = fs.open("/data/example.gif")?;
-
-// Unmount it when you're done (drops the file system)
-fs.umount("/data");
 ```
 
 ## Overlay filesystem
@@ -59,7 +56,7 @@ assert!(files.open("/files/example.txt").is_ok()); // this "example.txt" is from
 assert!(files.open("/files/hello.txt").is_ok());
 ```
 
-Note that if you tried to first mount `a`, followed by `b` on the same mount point, the first one would be shadowed by `b`.
+Note that if you tried to first mount `a`, followed by `b` under the same mount point, the first one would be shadowed by `b`.
 
 ## Extensible
 

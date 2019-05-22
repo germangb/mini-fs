@@ -12,7 +12,6 @@ exclude = [".pages/*"]
 edition = "2018"
 
 [dependencies]
-failure = "0.1.5"
 tar_ = { package = "tar", version = "0.4.23", optional = true }
 zip_ = { package = "zip", version = "0.5.2", optional = true }
 flate2 = { version = "1.0.7", optional = true }

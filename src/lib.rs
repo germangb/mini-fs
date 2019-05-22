@@ -13,7 +13,7 @@
 //! paths. However, you are free to implement custom stores where paths are case
 //! insensitive.
 //!
-//! ¹ Except maybe [`Local`], which uses [`std::fs`] internally and is subject
+//! ¹ Except maybe [`LocalFs`], which uses [`std::fs`] internally and is subject
 //! to the underlying OS.
 //!
 //! ## Example
@@ -21,10 +21,10 @@
 //! ```no_run
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use mini_fs::prelude::*;
-//! use mini_fs::{Local, MiniFs, Zip};
+//! use mini_fs::{LocalFs, MiniFs, ZipFs};
 //!
-//! let gfx = Local::new("./res/images");
-//! let sfx = Zip::open("archive.zip")?;
+//! let gfx = LocalFs::new("./res/images");
+//! let sfx = ZipFs::open("archive.zip")?;
 //!
 //! let assets = MiniFs::new().mount("/gfx", gfx).mount("/sfx", sfx);
 //!
@@ -38,13 +38,13 @@
 //! ## Security
 //!
 //! Don't use this crate in applications where security is a critical factor.
-//! [`Local`] in particular might be vulnerable to [directory traversal
+//! [`LocalFs`] in particular might be vulnerable to [directory traversal
 //! attacks][dir], so it's best not to use it directly in a static file server,
 //! for example.
 //!
 //! [`std::fs`]: https://doc.rust-lang.org/std/fs/index.html
 //! [`Store`]: ./trait.Store.html
-//! [`Local`]: ./struct.Local.html
+//! [`LocalFs`]: ./struct.LocalFs.html
 //! [dir]: https://en.wikipedia.org/wiki/Directory_traversal_attack
 use std::collections::{BTreeMap, LinkedList};
 use std::path::{Path, PathBuf};
@@ -54,9 +54,9 @@ use std::{env, fs, io};
 //pub use index::{Index, IndexEntries};
 pub use store::{Entries, Entry, EntryKind, Store, StoreExt};
 #[cfg(feature = "tar")]
-pub use tar::Tar;
+pub use tar::TarFs;
 #[cfg(feature = "zip")]
-pub use zip::Zip;
+pub use zip::ZipFs;
 
 // TODO module is hidden for now.
 /// Directory index.
@@ -131,9 +131,9 @@ file! {
         Local(fs::File),
         Ram(RamFile),
         #[cfg(feature = "zip")]
-        Zip(zip::ZipEntry),
+        Zip(zip::ZipFsFile),
         #[cfg(feature = "tar")]
-        Tar(tar::TarEntry),
+        Tar(tar::TarFsFile),
         // External types are dynamic
         User(Box<dyn UserFile>),
     }
@@ -226,11 +226,11 @@ impl MiniFs {
 }
 
 /// Native file store.
-pub struct Local {
+pub struct LocalFs {
     root: PathBuf,
 }
 
-impl Store for Local {
+impl Store for LocalFs {
     type File = fs::File;
 
     fn open_path(&self, path: &Path) -> io::Result<fs::File> {
@@ -273,7 +273,7 @@ impl Store for Local {
     }
 }
 
-impl Local {
+impl LocalFs {
     pub fn new<P: Into<PathBuf>>(root: P) -> Self {
         Self { root: root.into() }
     }
@@ -285,7 +285,7 @@ impl Local {
 }
 
 /// In-memory file storage
-pub struct Ram {
+pub struct RamFs {
     index: index::Index<Rc<[u8]>>,
 }
 
@@ -304,7 +304,7 @@ impl io::Seek for RamFile {
     }
 }
 
-impl Store for Ram {
+impl Store for RamFs {
     type File = RamFile;
 
     fn open_path(&self, path: &Path) -> io::Result<Self::File> {
@@ -324,7 +324,7 @@ impl Store for Ram {
     }
 }
 
-impl Ram {
+impl RamFs {
     pub fn new() -> Self {
         Self {
             index: index::Index::new(),

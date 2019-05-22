@@ -17,31 +17,31 @@ use std::rc::Rc;
 ///
 /// When used with a `std::fs::File`, the file will remain open for the lifetime
 /// of the Zip.
-pub struct Zip<T: Read + Seek> {
+pub struct ZipFs<T: Read + Seek> {
     inner: RefCell<T>,
     index: Option<Index<()>>,
 }
 
 /// Entry in the Zip archive.
-pub struct ZipEntry {
+pub struct ZipFsFile {
     inner: Cursor<Box<[u8]>>,
 }
 
-impl Read for ZipEntry {
+impl Read for ZipFsFile {
     #[inline]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
-impl Seek for ZipEntry {
+impl Seek for ZipFsFile {
     #[inline]
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         self.inner.seek(pos)
     }
 }
 
-impl Zip<fs::File> {
+impl ZipFs<fs::File> {
     pub fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let file = fs::OpenOptions::new()
             .read(true)
@@ -52,7 +52,7 @@ impl Zip<fs::File> {
     }
 }
 
-impl<T: Read + Seek> Zip<T> {
+impl<T: Read + Seek> ZipFs<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner: RefCell::new(inner),
@@ -81,8 +81,8 @@ impl<T: Read + Seek> Zip<T> {
     }
 }
 
-impl<T: Read + Seek> Store for Zip<T> {
-    type File = ZipEntry;
+impl<T: Read + Seek> Store for ZipFs<T> {
+    type File = ZipFsFile;
     fn open_path(&self, path: &Path) -> io::Result<Self::File> {
         let mut file = self.inner.borrow_mut();
         file.seek(SeekFrom::Start(0))?;
@@ -96,7 +96,7 @@ impl<T: Read + Seek> Store for Zip<T> {
 
         let mut v = Vec::new();
         file.read_to_end(&mut v)?;
-        Ok(ZipEntry {
+        Ok(ZipFsFile {
             inner: Cursor::new(v.into()),
         })
     }

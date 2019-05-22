@@ -3,11 +3,11 @@
 use std::path::Path;
 
 use mini_fs::prelude::*;
-use mini_fs::{Local, MiniFs, Tar};
+use mini_fs::{LocalFs, MiniFs, TarFs};
 
 fn main() {
-    let pwd = Local::pwd().unwrap();
-    let tar = Tar::open("tests/archive.tar.gz").unwrap();
+    let pwd = LocalFs::pwd().unwrap();
+    let tar = TarFs::open("tests/archive.tar.gz").unwrap();
 
     let fs = MiniFs::new().mount("/a", (pwd, tar));
 

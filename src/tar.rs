@@ -17,32 +17,32 @@ use crate::{Entries, Entry};
 ///
 /// When used with a `std::fs::File`, the file will remain open for the lifetime
 /// of the Tar.
-pub struct Tar<F: Read + Seek> {
+pub struct TarFs<F: Read + Seek> {
     gzip: Cell<bool>,
     inner: RefCell<F>,
     index: Option<Index<SeekFrom>>,
 }
 
 /// Entry in the Tar archive.
-pub struct TarEntry {
+pub struct TarFsFile {
     inner: Cursor<Box<[u8]>>,
 }
 
-impl Read for TarEntry {
+impl Read for TarFsFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
-impl Seek for TarEntry {
+impl Seek for TarFsFile {
     #[inline]
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         self.inner.seek(pos)
     }
 }
 
-impl<T: Read + Seek> Store for Tar<T> {
-    type File = TarEntry;
+impl<T: Read + Seek> Store for TarFs<T> {
+    type File = TarFsFile;
 
     fn open_path(&self, path: &Path) -> io::Result<Self::File> {
         if self.gzip.get() {
@@ -79,7 +79,7 @@ impl<T: Read + Seek> Store for Tar<T> {
     }
 }
 
-impl Tar<fs::File> {
+impl TarFs<fs::File> {
     /// Open a file from the native filesystem.
     pub fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let file = fs::OpenOptions::new()
@@ -91,7 +91,7 @@ impl Tar<fs::File> {
     }
 }
 
-impl<T: Read + Seek> Tar<T> {
+impl<T: Read + Seek> TarFs<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner: RefCell::new(inner),
@@ -100,14 +100,14 @@ impl<T: Read + Seek> Tar<T> {
         }
     }
 
-    fn open_read<R: Read>(&self, path: &Path, read: R) -> io::Result<TarEntry> {
+    fn open_read<R: Read>(&self, path: &Path, read: R) -> io::Result<TarFsFile> {
         let mut archive = Archive::new(read);
         for entry in archive.entries()? {
             let mut entry = entry?;
             if path == entry.path()? {
                 let mut data = Vec::new();
                 entry.read_to_end(&mut data)?;
-                return Ok(TarEntry {
+                return Ok(TarFsFile {
                     inner: Cursor::new(data.into()),
                 });
             }

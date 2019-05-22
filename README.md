@@ -18,11 +18,11 @@ An example showcasing the API:
 
 ```rust
 use mini_fs::prelude::*;
-use mini_fs::{Store, Local, Tar, MiniFs};
+use mini_fs::{Store, LocalFs, TarFs, MiniFs};
 
 // Declare some file systems.
-let local = Local::pwd()?;
-let tar = Tar::open("archive.tar.gz")?;
+let local = LocalFs::pwd()?;
+let tar = TarFs::open("archive.tar.gz")?;
 
 // Mount them.
 let mut fs = MiniFs::new()
@@ -46,10 +46,10 @@ Example use cases:
 * Replacing the assets from a game (modding).
 
 ```rust
-let a = Local::new("data/");
+let a = LocalFs::new("data/");
 // |- example.txt
 
-let b = Tar::open("archive.tar.gz")?;
+let b = TarFs::open("archive.tar.gz")?;
 // |- example.txt
 // |- hello.txt
 

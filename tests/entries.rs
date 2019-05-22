@@ -1,11 +1,11 @@
 use mini_fs::prelude::*;
-use mini_fs::{EntryKind, Local, MiniFs};
+use mini_fs::{EntryKind, LocalFs, MiniFs};
 use std::ffi::OsStr;
 use std::io::Result;
 
 #[test]
 fn mini_fs_entries() {
-    let local = Local::new("./tests/local");
+    let local = LocalFs::new("./tests/local");
 
     let files = MiniFs::new().mount("/files", local);
 
@@ -29,8 +29,8 @@ fn mini_fs_entries() {
 
 #[test]
 fn tuple_no_repeats() {
-    let a = Local::new("./tests/local");
-    let b = Local::new("./tests/local");
+    let a = LocalFs::new("./tests/local");
+    let b = LocalFs::new("./tests/local");
 
     let files = (a, b);
     let entries = files
@@ -45,11 +45,11 @@ fn tuple_no_repeats() {
 #[test]
 fn local_trait_object_entries() {
     use mini_fs::prelude::*;
-    use mini_fs::{Local, Store};
+    use mini_fs::{LocalFs, Store};
     use std::path::Path;
 
-    let local: Box<dyn Store<File = <Local as Store>::File>> =
-        Box::new(Local::new("./tests/local"));
+    let local: Box<dyn Store<File = <LocalFs as Store>::File>> =
+        Box::new(LocalFs::new("./tests/local"));
 
     let mut entries = local
         .entries_path(Path::new("./././"))
@@ -72,7 +72,7 @@ fn local_trait_object_entries() {
 
 #[test]
 fn local_entries() {
-    let local = Local::new("./tests/local");
+    let local = LocalFs::new("./tests/local");
 
     let mut entries = local
         .entries("./")

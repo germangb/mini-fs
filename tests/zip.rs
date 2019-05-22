@@ -5,10 +5,10 @@ use std::path::Path;
 #[cfg(feature = "zip")]
 fn zip() {
     use mini_fs::prelude::*;
-    use mini_fs::Zip;
+    use mini_fs::ZipFs;
 
     let file = include_bytes!("archive.zip");
-    let zip = Zip::new(Cursor::new(&file[..]));
+    let zip = ZipFs::new(Cursor::new(&file[..]));
 
     for _ in 0..4 {
         let mut hello = zip.open("hello.txt").unwrap();
@@ -26,10 +26,10 @@ fn zip() {
 #[cfg(feature = "zip")]
 fn zip_entries() {
     use mini_fs::prelude::*;
-    use mini_fs::Zip;
+    use mini_fs::ZipFs;
 
     let file = include_bytes!("archive2.zip");
-    let zip = Zip::new(Cursor::new(&file[..])).index().unwrap();
+    let zip = ZipFs::new(Cursor::new(&file[..])).index().unwrap();
 
     assert_eq!(2, zip.entries("nested").unwrap().collect::<Vec<_>>().len());
     assert_eq!(3, zip.entries(".").unwrap().collect::<Vec<_>>().len());

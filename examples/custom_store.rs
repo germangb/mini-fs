@@ -5,11 +5,11 @@ use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek, SeekFrom};
 use std::path::Path;
 
 // Virtual file system with a single "hello.txt" file.
-struct HelloWorld;
+struct HelloWorldFs;
 struct File(Cursor<&'static str>);
 
 // Implement storage
-impl Store for HelloWorld {
+impl Store for HelloWorldFs {
     type File = File;
     fn open_path(&self, path: &Path) -> Result<Self::File> {
         if path == Path::new("hello.txt") {
@@ -34,7 +34,7 @@ impl Seek for File {
 }
 
 fn main() {
-    let fs = MiniFs::new().mount("/files", HelloWorld);
+    let fs = MiniFs::new().mount("/files", HelloWorldFs);
 
     let mut s = String::new();
 

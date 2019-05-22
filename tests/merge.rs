@@ -5,10 +5,10 @@ use std::rc::Rc;
 #[cfg(nope)]
 #[test]
 fn merge() {
-    use mini_fs::{MiniFs, Ram, Store};
+    use mini_fs::{MiniFs, RamFs, Store};
 
-    let mut a = Ram::new();
-    let mut b = Ram::new();
+    let mut a = RamFs::new();
+    let mut b = RamFs::new();
 
     a.touch("a.txt", String::from("a.txt").into_bytes());
     a.touch("b.txt", String::from("b.txt").into_bytes());

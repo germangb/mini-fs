@@ -5,10 +5,10 @@ use std::path::Path;
 #[cfg(feature = "tar")]
 fn tar() {
     use mini_fs::prelude::*;
-    use mini_fs::{Store, Tar};
+    use mini_fs::{Store, TarFs};
 
     let file = include_bytes!("archive.tar");
-    let tar = Tar::new(Cursor::new(&file[..]));
+    let tar = TarFs::new(Cursor::new(&file[..]));
     for _ in 0..4 {
         let mut a = tar.open("a.txt").unwrap();
         let mut b = tar.open("b.txt").unwrap();
@@ -28,10 +28,10 @@ fn tar() {
 #[cfg(feature = "tar")]
 fn tar_gz() {
     use mini_fs::prelude::*;
-    use mini_fs::Tar;
+    use mini_fs::TarFs;
 
     let file = include_bytes!("archive.tar.gz");
-    let tar = Tar::new(Cursor::new(&file[..]));
+    let tar = TarFs::new(Cursor::new(&file[..]));
     for _ in 0..4 {
         let mut a = tar.open("a.txt").unwrap();
         let mut b = tar.open("b.txt").unwrap();
@@ -51,8 +51,8 @@ fn tar_gz() {
 #[cfg(feature = "tar")]
 fn tar_entries() {
     use mini_fs::prelude::*;
-    use mini_fs::Tar;
+    use mini_fs::TarFs;
 
     let file = include_bytes!("archive.tar.gz");
-    let tar = Tar::new(Cursor::new(&file[..])).index().unwrap();
+    let tar = TarFs::new(Cursor::new(&file[..])).index().unwrap();
 }

@@ -25,10 +25,6 @@ pub struct Entries<'a> {
 }
 
 impl<'a> Entries<'a> {
-    pub(crate) fn empty() -> Self {
-        Self::new(std::iter::empty())
-    }
-
     pub fn new<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = <Entries<'a> as Iterator>::Item>,
@@ -59,7 +55,7 @@ pub trait Store {
     /// Order is not defined, so it may be depth first, breadth first, or any
     /// arbitrary order.
     fn entries_path(&self, _: &Path) -> io::Result<Entries> {
-        Ok(Entries::empty())
+        unimplemented!("entries_path is not implemented.")
     }
 }
 

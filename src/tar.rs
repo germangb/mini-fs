@@ -119,6 +119,6 @@ impl<T: Read + Seek> TarFs<T> {
     /// Having an index allows you to list the contents of the archive using the
     /// entries_path and entries methods.
     pub fn index(self) -> io::Result<Self> {
-        Ok(self)
+        unimplemented!();
     }
 }

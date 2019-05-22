@@ -130,14 +130,13 @@ impl Store for MiniFs {
     }
 
     fn entries_path(&self, path: &Path) -> Result<Entries> {
-        // FIXME creating a new PathBuf because otherwise I'm getting lifetime mismatch
-        // errors.
+        // FIXME creating a new PathBuf because otherwise I'm getting lifetime errors.
         let path = path.to_path_buf();
 
         Ok(Entries::new(self.mount.iter().flat_map(
             move |m| match path.strip_prefix(&m.path) {
                 Ok(np) => m.store.entries_path(np).unwrap(),
-                Err(_) => Entries::empty(),
+                Err(_) => Entries::new(None),
             },
         )))
     }

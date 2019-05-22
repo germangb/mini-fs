@@ -50,10 +50,7 @@ pub trait Store {
 
     fn open_path(&self, path: &Path) -> io::Result<Self::File>;
 
-    /// Iterate over the entries of the Store.
-    ///
-    /// Order is not defined, so it may be depth first, breadth first, or any
-    /// arbitrary order.
+    /// Returns an iterator over the files & directory entries in a given path.
     fn entries_path(&self, _: &Path) -> io::Result<Entries> {
         unimplemented!("entries_path is not implemented.")
     }

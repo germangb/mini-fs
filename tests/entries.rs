@@ -28,6 +28,38 @@ fn mini_fs_entries() {
 }
 
 #[test]
+fn overriden_entries_0() {
+    let f0 = LocalFs::new("./tests/local/");
+    let f1 = LocalFs::new("./tests/local/baz");
+
+    let files = MiniFs::new().mount("/f0", f0).mount("/f0", f1);
+
+    let mut entries = files
+        .entries("/f0")
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+
+    assert_eq!(1, entries.len());
+}
+
+#[test]
+fn overriden_entries_1() {
+    let f0 = LocalFs::new("./tests/local/baz");
+    let f1 = LocalFs::new("./tests/local/");
+
+    let files = MiniFs::new().mount("/f0", f0).mount("/f0", f1);
+
+    let mut entries = files
+        .entries("/f0")
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+
+    assert_eq!(3, entries.len());
+}
+
+#[test]
 fn tuple_no_repeats() {
     let a = LocalFs::new("./tests/local");
     let b = LocalFs::new("./tests/local");

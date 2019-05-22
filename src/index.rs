@@ -83,35 +83,27 @@ impl<M> Index<M> {
         Self { root: Node::new() }
     }
 
-    pub fn entries<P>(&self, path: P) -> Entries<M>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn entries<P: AsRef<Path>>(&self, path: P) -> Entries<M> {
         let path = normalize_path(path.as_ref());
         entries(path.into_iter().collect(), &self.root)
     }
 
-    pub fn insert<P>(&mut self, path: P, meta: M)
-    where
-        P: Into<PathBuf>,
-    {
+    pub fn remove<P: AsRef<Path>>(&self, _path: P) -> Option<M> {
+        unimplemented!()
+    }
+
+    pub fn insert<P: Into<PathBuf>>(&mut self, path: P, meta: M) {
         let path = path.into();
         let path = normalize_path(&path);
         insert(path.into_iter().collect(), &mut self.root, meta)
     }
 
-    pub fn get<P>(&self, path: P) -> Option<&M>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn get<P: AsRef<Path>>(&self, path: P) -> Option<&M> {
         let path = normalize_path(path.as_ref());
         get(path.into_iter().collect(), &self.root)
     }
 
-    pub fn contains<P>(&self, path: P) -> bool
-    where
-        P: AsRef<Path>,
-    {
+    pub fn contains<P: AsRef<Path>>(&self, path: P) -> bool {
         self.get(path).is_some()
     }
 
@@ -186,8 +178,8 @@ fn get<'a, M>(mut parts: VecDeque<&OsStr>, node: &'a Node<M>) -> Option<&'a M> {
 /// use mini_fs::index::normalize_path;
 /// use std::path::Path;
 ///
-/// assert_eq!(Path::new("/"), normalize_path(Path::new("/a/b/c/../../..")),);
-/// assert_eq!(Path::new("foo"), normalize_path(Path::new("./foo")),);
+/// assert_eq!(Path::new("/"), normalize_path(Path::new("/a/b/c/../../..")));
+/// assert_eq!(Path::new("foo"), normalize_path(Path::new("./foo")));
 /// ```
 #[doc(hidden)]
 pub fn normalize_path(path: &Path) -> Cow<Path> {

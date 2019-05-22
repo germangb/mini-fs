@@ -133,12 +133,17 @@ impl Store for MiniFs {
         // FIXME creating a new PathBuf because otherwise I'm getting lifetime errors.
         let path = path.to_path_buf();
 
-        Ok(Entries::new(self.mount.iter().flat_map(
-            move |m| match path.strip_prefix(&m.path) {
-                Ok(np) => m.store.entries_path(np).unwrap(),
-                Err(_) => Entries::new(None),
-            },
-        )))
+        Ok(Entries::new(
+            self.mount
+                .iter()
+                .rev()
+                .find(|m| path.strip_prefix(&m.path).is_ok())
+                .into_iter()
+                .flat_map(move |m| match path.strip_prefix(&m.path) {
+                    Ok(np) => m.store.entries_path(np).unwrap(),
+                    Err(_) => Entries::new(None),
+                }),
+        ))
     }
 }
 
@@ -287,8 +292,8 @@ impl RamFs {
         self.index.clear();
     }
 
-    pub fn rm<P: AsRef<Path>>(&mut self, _path: P) {
-        unimplemented!()
+    pub fn rm<P: AsRef<Path>>(&mut self, path: P) -> Option<Rc<[u8]>> {
+        self.index.remove(path)
     }
 
     pub fn touch<P, F>(&mut self, path: P, file: F)

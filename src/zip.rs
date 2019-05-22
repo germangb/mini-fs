@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::fs;
-use std::io::{self, Cursor, ErrorKind, Read, Seek, SeekFrom, Write};
-use std::ops::DerefMut;
+use std::io::{self, Cursor, ErrorKind, Read, Seek, SeekFrom};
 use std::path::Path;
 
 use zip_::ZipArchive;
@@ -9,7 +8,6 @@ use zip_::ZipArchive;
 use crate::index::Index;
 use crate::store::Store;
 use crate::{Entries, Entry};
-use std::rc::Rc;
 
 /// Zip archive store.
 ///

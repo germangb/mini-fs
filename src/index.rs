@@ -1,18 +1,19 @@
-use crate::{EntryKind, File};
+use crate::EntryKind;
 
 use std::borrow::Cow;
 use std::collections::btree_map::{BTreeMap, Iter};
-use std::collections::linked_list::LinkedList;
+use std::collections::vec_deque::VecDeque;
 use std::ffi::{OsStr, OsString};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
-struct DirNode<M> {
+/// Directory tree node.
+/// Contains a list of file entries (leaf nodes), and directories (child nodes).
+struct Node<M> {
     files: BTreeMap<OsString, M>,
-    dirs: BTreeMap<OsString, DirNode<M>>,
+    dirs: BTreeMap<OsString, Node<M>>,
 }
-
-impl<M> DirNode<M> {
-    fn new(name: Option<OsString>) -> Self {
+impl<M> Node<M> {
+    fn new() -> Self {
         Self {
             files: BTreeMap::new(),
             dirs: BTreeMap::new(),
@@ -20,18 +21,21 @@ impl<M> DirNode<M> {
     }
 }
 
-/// Directory index.
+/// Directory index, implemented as a trie.
 pub struct Index<M> {
-    root: DirNode<M>,
+    // TODO optimize tree (merge consecutive nodes with a single directory entry)
+    // TODO remove extra unnecessary allocations.
+    root: Node<M>,
 }
 
 /// Index entries iterator.
 pub struct Entries<'a, M> {
     files: Option<Iter<'a, OsString, M>>,
-    dirs: Option<Iter<'a, OsString, DirNode<M>>>,
+    dirs: Option<Iter<'a, OsString, Node<M>>>,
 }
 
 impl<'a, M> Entries<'a, M> {
+    // Polls the next file entry
     fn next_file(&mut self) -> Option<<Self as Iterator>::Item> {
         if let Some(ref mut iter) = self.files {
             iter.next().map(|(n, e)| Entry {
@@ -44,6 +48,7 @@ impl<'a, M> Entries<'a, M> {
         }
     }
 
+    // Polls the next directory entry
     fn next_dir(&mut self) -> Option<<Self as Iterator>::Item> {
         if let Some(ref mut iter) = self.dirs {
             iter.next().map(|(n, _)| Entry {
@@ -64,7 +69,9 @@ impl<'a, M> Iterator for Entries<'a, M> {
     }
 }
 
-/// Directory index entry
+/// An entry in the directory index.
+///
+/// Can represent either a directory, or a file with metadata.
 pub struct Entry<'a, M> {
     pub name: &'a OsStr,
     pub meta: Option<&'a M>,
@@ -73,16 +80,14 @@ pub struct Entry<'a, M> {
 
 impl<M> Index<M> {
     pub fn new() -> Self {
-        Self {
-            root: DirNode::new(None),
-        }
+        Self { root: Node::new() }
     }
 
     pub fn entries<P>(&self, path: P) -> Entries<M>
     where
         P: AsRef<Path>,
     {
-        let path = normalize_path(path.as_ref()).to_path_buf();
+        let path = normalize_path(path.as_ref());
         entries(path.into_iter().collect(), &self.root)
     }
 
@@ -90,7 +95,8 @@ impl<M> Index<M> {
     where
         P: Into<PathBuf>,
     {
-        let path = normalize_path(&path.into()).to_path_buf();
+        let path = path.into();
+        let path = normalize_path(&path);
         insert(path.into_iter().collect(), &mut self.root, meta)
     }
 
@@ -98,7 +104,7 @@ impl<M> Index<M> {
     where
         P: AsRef<Path>,
     {
-        let path = normalize_path(path.as_ref()).to_path_buf();
+        let path = normalize_path(path.as_ref());
         get(path.into_iter().collect(), &self.root)
     }
 
@@ -115,7 +121,7 @@ impl<M> Index<M> {
     }
 }
 
-fn entries<'a, M>(mut parts: LinkedList<&OsStr>, node: &'a DirNode<M>) -> Entries<'a, M> {
+fn entries<'a, M>(mut parts: VecDeque<&OsStr>, node: &'a Node<M>) -> Entries<'a, M> {
     let f0 = parts.pop_front();
     match (f0, parts.front()) {
         (None, _) => Entries {
@@ -135,7 +141,7 @@ fn entries<'a, M>(mut parts: LinkedList<&OsStr>, node: &'a DirNode<M>) -> Entrie
     }
 }
 
-fn insert<M>(mut parts: LinkedList<&OsStr>, node: &mut DirNode<M>, meta: M) {
+fn insert<M>(mut parts: VecDeque<&OsStr>, node: &mut Node<M>, meta: M) {
     let f0 = parts.pop_front();
     match (f0, parts.front()) {
         (None, _) => {}
@@ -150,7 +156,7 @@ fn insert<M>(mut parts: LinkedList<&OsStr>, node: &mut DirNode<M>, meta: M) {
                 insert(parts, dir, meta)
             } else {
                 let name = dir.to_os_string();
-                let mut new_node = DirNode::new(Some(name.clone()));
+                let mut new_node = Node::new();
                 insert(parts, &mut new_node, meta);
                 node.dirs.insert(name, new_node);
             }
@@ -158,7 +164,7 @@ fn insert<M>(mut parts: LinkedList<&OsStr>, node: &mut DirNode<M>, meta: M) {
     }
 }
 
-fn get<'a, M>(mut parts: LinkedList<&OsStr>, node: &'a DirNode<M>) -> Option<&'a M> {
+fn get<'a, M>(mut parts: VecDeque<&OsStr>, node: &'a Node<M>) -> Option<&'a M> {
     let f0 = parts.pop_front();
     match (f0, parts.front()) {
         (None, _) => None,

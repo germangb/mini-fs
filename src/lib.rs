@@ -46,10 +46,13 @@
 //! [`Store`]: ./trait.Store.html
 //! [`LocalFs`]: ./struct.LocalFs.html
 //! [dir]: https://en.wikipedia.org/wiki/Directory_traversal_attack
-use std::collections::{BTreeMap, LinkedList};
+#![deny(warnings)]
+use std::any::Any;
+use std::collections::LinkedList;
+use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::{env, fs, io};
+use std::{env, fs};
 
 //pub use index::{Index, IndexEntries};
 pub use store::{Entries, Entry, EntryKind, Store, StoreExt};
@@ -58,7 +61,8 @@ pub use tar::TarFs;
 #[cfg(feature = "zip")]
 pub use zip::ZipFs;
 
-// TODO module is hidden for now.
+include!("macros.rs");
+
 /// Directory index.
 #[doc(hidden)]
 pub mod index;
@@ -74,58 +78,7 @@ pub mod prelude {
     pub use crate::store::{Store, StoreExt};
 }
 
-macro_rules! file {
-    (
-        $(#[$($meta:meta)+])*
-        pub enum $enum_name:ident {
-            $(
-                $(#[$($var_meta:meta)+])*
-                $var_name:ident($var_type:ty),
-            )*
-        }
-    ) => {
-        $(#[$($meta)+])*
-        pub enum $enum_name {
-            $(
-                $(#[$($var_meta)+])*
-                $var_name($var_type),
-            )*
-        }
-
-        $(
-            $(#[$($var_meta)+])*
-            impl From<$var_type> for $enum_name {
-                fn from(file: $var_type) -> Self {
-                    $enum_name::$var_name(file)
-                }
-            }
-        )*
-
-        impl io::Read for $enum_name {
-            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-                match self {
-                    $(
-                        $(#[$($var_meta)+])*
-                        $enum_name::$var_name(ref mut file) => file.read(buf),
-                    )*
-                }
-            }
-        }
-
-        impl io::Seek for File {
-            fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
-                match self {
-                    $(
-                        $(#[$($var_meta)+])*
-                        $enum_name::$var_name(ref mut file) => file.seek(pos),
-                    )*
-                }
-            }
-        }
-    }
-}
-
-file! {
+impl_file! {
     /// File you can seek and read from.
     pub enum File {
         Local(fs::File),
@@ -140,7 +93,7 @@ file! {
 }
 
 /// Custom file type.
-pub trait UserFile: std::any::Any + io::Read + io::Seek + Send {}
+pub trait UserFile: Any + Read + Seek + Send {}
 
 impl<T: UserFile> From<T> for File {
     fn from(file: T) -> Self {
@@ -161,7 +114,7 @@ pub struct MiniFs {
 impl Store for MiniFs {
     type File = File;
 
-    fn open_path(&self, path: &Path) -> io::Result<File> {
+    fn open_path(&self, path: &Path) -> Result<File> {
         let next = self.mount.iter().rev().find_map(|mnt| {
             if let Ok(np) = path.strip_prefix(&mnt.path) {
                 Some((np, &mnt.store))
@@ -172,11 +125,11 @@ impl Store for MiniFs {
         if let Some((np, store)) = next {
             store.open_path(np)
         } else {
-            Err(io::Error::from(io::ErrorKind::NotFound))
+            Err(Error::from(ErrorKind::NotFound))
         }
     }
 
-    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+    fn entries_path(&self, path: &Path) -> Result<Entries> {
         // FIXME creating a new PathBuf because otherwise I'm getting lifetime mismatch
         // errors.
         let path = path.to_path_buf();
@@ -233,7 +186,7 @@ pub struct LocalFs {
 impl Store for LocalFs {
     type File = fs::File;
 
-    fn open_path(&self, path: &Path) -> io::Result<fs::File> {
+    fn open_path(&self, path: &Path) -> Result<fs::File> {
         fs::OpenOptions::new()
             .create(false)
             .read(true)
@@ -241,9 +194,9 @@ impl Store for LocalFs {
             .open(self.root.join(path))
     }
 
-    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+    fn entries_path(&self, path: &Path) -> Result<Entries> {
         // FIXME cloned because lifetimes.
-        let root = self.root.clone();
+        //let root = self.root.clone();
 
         let entries = fs::read_dir(self.root.join(path))?.map(move |ent| {
             let entry = ent?;
@@ -279,7 +232,7 @@ impl LocalFs {
     }
 
     /// Point to the current working directory.
-    pub fn pwd() -> io::Result<Self> {
+    pub fn pwd() -> Result<Self> {
         Ok(Self::new(env::current_dir()?))
     }
 }
@@ -290,16 +243,16 @@ pub struct RamFs {
 }
 
 /// In-memory file.
-pub struct RamFile(io::Cursor<Rc<[u8]>>);
+pub struct RamFile(Cursor<Rc<[u8]>>);
 
-impl io::Read for RamFile {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+impl Read for RamFile {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.0.read(buf)
     }
 }
 
-impl io::Seek for RamFile {
-    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+impl Seek for RamFile {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         self.0.seek(pos)
     }
 }
@@ -307,14 +260,14 @@ impl io::Seek for RamFile {
 impl Store for RamFs {
     type File = RamFile;
 
-    fn open_path(&self, path: &Path) -> io::Result<Self::File> {
+    fn open_path(&self, path: &Path) -> Result<Self::File> {
         match self.index.get(path) {
-            Some(file) => Ok(RamFile(io::Cursor::new(Rc::clone(file)))),
-            None => Err(io::Error::from(io::ErrorKind::NotFound)),
+            Some(file) => Ok(RamFile(Cursor::new(Rc::clone(file)))),
+            None => Err(Error::from(ErrorKind::NotFound)),
         }
     }
 
-    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+    fn entries_path(&self, path: &Path) -> Result<Entries> {
         Ok(Entries::new(self.index.entries(path).map(|ent| {
             Ok(Entry {
                 name: ent.name.to_os_string(),
@@ -335,8 +288,8 @@ impl RamFs {
         self.index.clear();
     }
 
-    pub fn rm<P: AsRef<Path>>(&mut self, path: P) {
-        // TODO
+    pub fn rm<P: AsRef<Path>>(&mut self, _path: P) {
+        unimplemented!()
     }
 
     pub fn touch<P, F>(&mut self, path: P, file: F)

@@ -1,7 +1,6 @@
 use std::cell::{Cell, RefCell};
 use std::fs;
 use std::io::{self, Cursor, ErrorKind, Read, Seek, SeekFrom};
-use std::ops::DerefMut;
 use std::path::Path;
 
 use flate2::read::GzDecoder;
@@ -57,7 +56,7 @@ impl<T: Read + Seek> Store for TarFs<T> {
                 Err(ref e) if e.kind() == ErrorKind::NotFound => {
                     Err(io::Error::from(ErrorKind::NotFound))
                 }
-                Err(e) => {
+                Err(_) => {
                     self.gzip.set(true);
                     drop(file);
                     self.open_path(path)

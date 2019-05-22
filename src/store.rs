@@ -1,8 +1,7 @@
 use std::collections::btree_set::BTreeSet;
 use std::ffi::OsString;
-use std::io::{self, Read, Seek, Write};
-use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
+use std::io;
+use std::path::Path;
 
 /// File or directory entry.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -59,7 +58,7 @@ pub trait Store {
     ///
     /// Order is not defined, so it may be depth first, breadth first, or any
     /// arbitrary order.
-    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+    fn entries_path(&self, _: &Path) -> io::Result<Entries> {
         Ok(Entries::empty())
     }
 }
@@ -147,52 +146,5 @@ where
     }
 }
 
-macro_rules! entries {
-    ($self:ident, $path:expr, $head:ident,) => { $self.0.entries_path($path)? };
-    ($self:ident, $path:expr, $head:ident, $($tail:ident,)+) => {
-        $self.0.entries_path($path)?.chain(entries!($self, $path, $($tail,)+) )
-    }
-}
-
-macro_rules! tuples {
-    ($head:ident,) => {};
-    ($head:ident, $($tail:ident,)+) => {
-        impl<$head, $($tail,)+> Store for ($head, $($tail,)+)
-        where
-            $head: Store,
-            $($tail: Store,)+
-            $head::File: Into<$crate::File>,
-            $($tail::File: Into<$crate::File>,)+
-        {
-            type File = $crate::File;
-            #[allow(non_snake_case)]
-            fn open_path(&self, path: &Path) -> io::Result<Self::File> {
-                let ($head, $($tail,)+) = self;
-                match $head.open_path(path) {
-                    Ok(file) => return Ok(file.into()),
-                    Err(ref err) if err.kind() == io::ErrorKind::NotFound => {},
-                    Err(err) => return Err(err),
-                }
-                $(
-                match $tail.open_path(path) {
-                    Ok(file) => return Ok(file.into()),
-                    Err(ref err) if err.kind() == io::ErrorKind::NotFound => {},
-                    Err(err) => return Err(err),
-                }
-                )+
-
-                Err(io::Error::from(io::ErrorKind::NotFound))
-            }
-
-            fn entries_path(&self, path: &Path) -> io::Result<Entries> {
-                // chain all elements from the tuple
-                let raw = entries!(self, path, $head, $($tail,)+);
-                Ok(Entries::new(TupleEntries::new(raw)))
-            }
-        }
-        tuples!($($tail,)+);
-    };
-}
-
 // Implement tuples of up to 11 elements (12 or more looks bad on the rustdoc)
-tuples! { A, B, C, D, E, F, G, H, I, J, K, }
+store_tuples! { A, B, C, D, E, F, G, H, I, J, K, }

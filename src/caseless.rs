@@ -1,16 +1,19 @@
 //! This module contains a caseless filesystem.
 //!
-//! A caseless filesystem wraps an inner filesystem and treats paths as case-insensitive, regardless of the case of the inner filesystem.
+//! A caseless filesystem wraps an inner filesystem and treats paths as
+//! case-insensitive, regardless of the case of the inner filesystem.
 //!
 //! Case-insensitive paths are refered to as caseless paths.
 //! A caseless path that matches the real path of a file always opens that file.
-//! Otherwise a caseless path will open the first path of the inner filesystem that matches the caseless path.
+//! Otherwise a caseless path will open the first path of the inner filesystem
+//! that matches the caseless path.
 //!
-//! Internally paths are strings of type OsString, which can contain invalid utf8.
-//! There is no safe way to make case-insensitive comparisons when invalid utf8 is present.
-//! To minimize the effect of this restriction, the path components are compared individually.
-//! Path components with valid utf8 are compared in a case-insensitive way.
-//! Path components with invalid utf8 are compared raw (case-sensitive).
+//! Internally paths are strings of type OsString, which can contain invalid
+//! utf8. There is no safe way to make case-insensitive comparisons when invalid
+//! utf8 is present. To minimize the effect of this restriction, the path
+//! components are compared individually. Path components with valid utf8 are
+//! compared in a case-insensitive way. Path components with invalid utf8 are
+//! compared raw (case-sensitive).
 
 use std::ffi::OsString;
 use std::io;
@@ -29,7 +32,8 @@ pub struct CaselessFs<S> {
 
 impl<S: Store> CaselessFs<S> {
     /// Creates a new caseless filesystem with the provided inner filesystem.
-    /// It treats paths as case-insensitive, regardless of the case of the inner filesystem.
+    /// It treats paths as case-insensitive, regardless of the case of the inner
+    /// filesystem.
     pub fn new(inner: S) -> Self {
         Self { inner }
     }
@@ -72,8 +76,9 @@ impl<S: Store> Store for CaselessFs<S> {
     type File = S::File;
 
     /// Opens the file identified by the caseless path.
-    /// A caseless path that matches the real path of a file always opens that file.
-    /// Otherwise a caseless path will open the first path of the inner filesystem that matches the caseless path.
+    /// A caseless path that matches the real path of a file always opens that
+    /// file. Otherwise a caseless path will open the first path of the
+    /// inner filesystem that matches the caseless path.
     fn open_path(&self, path: &Path) -> io::Result<Self::File> {
         // real path
         if let Ok(file) = self.inner.open_path(path) {

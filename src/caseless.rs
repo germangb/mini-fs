@@ -22,33 +22,33 @@ use crate::store::Entries;
 
 /// Caseless filesystem wrapping an inner filesystem.
 #[derive(Clone, Debug)]
-pub struct CaselessFs<T> {
+pub struct CaselessFs<S> {
     /// Inner filesystem store.
-    inner: T,
+    inner: S,
 }
 
-impl<T: Store> CaselessFs<T> {
+impl<S: Store> CaselessFs<S> {
     /// Creates a new caseless filesystem with the provided inner filesystem.
     /// It treats paths as case-insensitive, regardless of the case of the inner filesystem.
-    pub fn new(inner: T) -> Self {
+    pub fn new(inner: S) -> Self {
         Self { inner }
     }
 
     /// Moves the inner filesystem out of the caseless filesystem.
     /// Inspired by std::io::Cursor.
-    pub fn into_inner(self) -> T {
+    pub fn into_inner(self) -> S {
         self.inner
     }
 
     /// Gets a reference to the inner filesystem.
     /// Inspired by std::io::Cursor.
-    pub fn get_ref(&self) -> &T {
+    pub fn get_ref(&self) -> &S {
         &self.inner
     }
 
     /// Gets a mutable reference to the inner filesystem.
     /// Inspired by std::io::Cursor.
-    pub fn get_mut(&mut self) -> &mut T {
+    pub fn get_mut(&mut self) -> &mut S {
         &mut self.inner
     }
 
@@ -68,8 +68,8 @@ impl<T: Store> CaselessFs<T> {
     }
 }
 
-impl<T: Store> Store for CaselessFs<T> {
-    type File = T::File;
+impl<S: Store> Store for CaselessFs<S> {
+    type File = S::File;
 
     /// Opens the file identified by the caseless path.
     /// A caseless path that matches the real path of a file always opens that file.

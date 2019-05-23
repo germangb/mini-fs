@@ -54,7 +54,7 @@ impl<'a, M> Entries<'a, M> {
             iter.next().map(|(n, _)| Entry {
                 name: n.as_os_str(),
                 meta: None,
-                kind: EntryKind::File,
+                kind: EntryKind::Dir,
             })
         } else {
             None

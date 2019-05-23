@@ -54,6 +54,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, fs};
 
+pub use caseless::CaselessFs;
 //pub use index::{Index, IndexEntries};
 pub use store::{Entries, Entry, EntryKind, Store, StoreExt};
 #[cfg(feature = "tar")]
@@ -63,6 +64,7 @@ pub use zip::ZipFs;
 
 include!("macros.rs");
 
+pub mod caseless;
 /// Directory index.
 #[doc(hidden)]
 pub mod index;

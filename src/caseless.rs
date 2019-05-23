@@ -41,11 +41,7 @@ impl<T: Store> CaselessFs<T> {
 
     /// Finds paths that match the caseless path.
     pub fn find<P: AsRef<Path>>(&self, path: P) -> Vec<PathBuf> {
-        self.find_path(&normalize_path(path.as_ref()))
-    }
-
-    /// Finds paths that match the caseless path.
-    pub fn find_path(&self, path: &Path) -> Vec<PathBuf> {
+        let path = normalize_path(path.as_ref());
         let mut paths = vec![PathBuf::new()];
         for component in path.components() {
             paths = find_next_ascii_lowercase(&self.inner, &component, paths);
@@ -67,7 +63,7 @@ impl<T: Store> Store for CaselessFs<T> {
             return Ok(file);
         }
         // caseless path
-        for path in self.find_path(path) {
+        for path in self.find(path) {
             return self.inner.open_path(&path);
         }
         Err(io::ErrorKind::NotFound.into())

@@ -1,11 +1,8 @@
-use std::io::{Cursor, Read};
-use std::path::Path;
-use std::rc::Rc;
-
-#[cfg(nope)]
 #[test]
-fn merge() {
-    use mini_fs::{MiniFs, RamFs, Store};
+fn merge_tup() {
+    use mini_fs::prelude::*;
+    use mini_fs::{MiniFs, RamFs};
+    use std::io::prelude::*;
 
     let mut a = RamFs::new();
     let mut b = RamFs::new();

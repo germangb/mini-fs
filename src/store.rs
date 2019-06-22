@@ -141,3 +141,74 @@ where
 
 // Implement tuples of up to 11 elements (12 or more looks bad on the rustdoc)
 store_tuples! { A, B, C, D, E, F, G, H, I, J, K, }
+
+/// A vector of stores can be used as an overlay filesystem.
+/// Naturally, all the stores will have the same type.
+impl<S> Store for Vec<S>
+where
+    S: Store,
+{
+    type File = S::File;
+
+    /// Opens the file identified by path.
+    fn open_path(&self, path: &Path) -> io::Result<Self::File> {
+        for store in self {
+            match store.open_path(&path) {
+                Ok(file) => return Ok(file),
+                Err(ref err) if err.kind() == io::ErrorKind::NotFound => {}
+                Err(err) => return Err(err),
+            }
+        }
+        return Err(io::ErrorKind::NotFound.into());
+    }
+
+    /// Returns an iterator over the entries.
+    /// Skips duplicate entries.
+    fn entries_path(&self, path: &Path) -> io::Result<Entries> {
+        let mut iterators = Vec::with_capacity(self.capacity());
+        for store in self.iter() {
+            iterators.push(store.entries_path(path)?);
+        }
+        Ok(Entries::new(VecEntries {
+            inner: iterators,
+            set: BTreeSet::new(),
+        }))
+    }
+}
+
+/// Iterator over the entries of the inner stores that skips duplicates.
+struct VecEntries<I> {
+    /// Inner iterators.
+    inner: Vec<I>,
+    /// Set identifying the entries that have been returned.
+    /// Used to skip duplicates.
+    set: BTreeSet<OsString>,
+}
+
+impl<I> Iterator for VecEntries<I>
+where
+    I: Iterator<Item = io::Result<Entry>>,
+{
+    type Item = I::Item;
+
+    /// Gets the next entry result or None.
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.inner.len() == 0 {
+                return None; // no more entries
+            }
+            while let Some(result) = self.inner[0].next() {
+                match result {
+                    Err(err) => return Some(Err(err)),
+                    Ok(entry) => {
+                        // skip duplicate entries
+                        if self.set.insert(entry.name.clone()) {
+                            return Some(Ok(entry));
+                        }
+                    }
+                }
+            }
+            self.inner.remove(0); // iterator is done, try next
+        }
+    }
+}

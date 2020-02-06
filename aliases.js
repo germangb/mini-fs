@@ -1,0 +1,16 @@
+var ALIASES = {};
+ALIASES["adler32"] = {};
+ALIASES["bzip2"] = {};
+ALIASES["bzip2_sys"] = {};
+ALIASES["cfg_if"] = {};
+ALIASES["crc32fast"] = {};
+ALIASES["filetime"] = {};
+ALIASES["flate2"] = {};
+ALIASES["libc"] = {};
+ALIASES["mini_fs"] = {};
+ALIASES["miniz_oxide"] = {};
+ALIASES["podio"] = {};
+ALIASES["tar"] = {};
+ALIASES["time"] = {};
+ALIASES["xattr"] = {};
+ALIASES["zip"] = {};

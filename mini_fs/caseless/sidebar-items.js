@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CaselessFs","Caseless filesystem wrapping an inner filesystem."]]});

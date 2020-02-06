@@ -1,0 +1,17 @@
+var N = null;var sourcesIndex = {};
+sourcesIndex["adler32"] = {"name":"","files":["lib.rs"]};
+sourcesIndex["bzip2"] = {"name":"","files":["bufread.rs","lib.rs","mem.rs","read.rs","write.rs"]};
+sourcesIndex["bzip2_sys"] = {"name":"","files":["lib.rs"]};
+sourcesIndex["cfg_if"] = {"name":"","files":["lib.rs"]};
+sourcesIndex["crc32fast"] = {"name":"","dirs":[{"name":"specialized","files":["mod.rs","pclmulqdq.rs"]}],"files":["baseline.rs","combine.rs","lib.rs","table.rs"]};
+sourcesIndex["filetime"] = {"name":"","dirs":[{"name":"unix","files":["linux.rs","mod.rs","utimes.rs"]}],"files":["lib.rs"]};
+sourcesIndex["flate2"] = {"name":"","dirs":[{"name":"deflate","files":["bufread.rs","mod.rs","read.rs","write.rs"]},{"name":"ffi","files":["mod.rs","rust.rs"]},{"name":"gz","files":["bufread.rs","mod.rs","read.rs","write.rs"]},{"name":"zlib","files":["bufread.rs","mod.rs","read.rs","write.rs"]}],"files":["bufreader.rs","crc.rs","lib.rs","mem.rs","zio.rs"]};
+sourcesIndex["libc"] = {"name":"","dirs":[{"name":"unix","dirs":[{"name":"linux_like","dirs":[{"name":"linux","dirs":[{"name":"gnu","dirs":[{"name":"b64","dirs":[{"name":"x86_64","files":["align.rs","mod.rs","not_x32.rs"]}],"files":["mod.rs"]}],"files":["align.rs","mod.rs"]}],"files":["align.rs","mod.rs"]}],"files":["mod.rs"]}],"files":["align.rs","mod.rs"]}],"files":["fixed_width_ints.rs","lib.rs","macros.rs"]};
+sourcesIndex["mini_fs"] = {"name":"","files":["caseless.rs","index.rs","lib.rs","macros.rs","store.rs","tar.rs","zip.rs"]};
+sourcesIndex["miniz_oxide"] = {"name":"","dirs":[{"name":"deflate","files":["buffer.rs","core.rs","mod.rs","stream.rs"]},{"name":"inflate","files":["core.rs","mod.rs","output_buffer.rs","stream.rs"]}],"files":["lib.rs","shared.rs"]};
+sourcesIndex["podio"] = {"name":"","files":["lib.rs"]};
+sourcesIndex["tar"] = {"name":"","files":["archive.rs","builder.rs","entry.rs","entry_type.rs","error.rs","header.rs","lib.rs","pax.rs"]};
+sourcesIndex["time"] = {"name":"","files":["display.rs","duration.rs","lib.rs","parse.rs","sys.rs"]};
+sourcesIndex["xattr"] = {"name":"","dirs":[{"name":"sys","dirs":[{"name":"linux_macos","files":["linux.rs","mod.rs"]}],"files":["mod.rs"]}],"files":["error.rs","lib.rs","util.rs"]};
+sourcesIndex["zip"] = {"name":"","files":["compression.rs","cp437.rs","crc32.rs","lib.rs","read.rs","result.rs","spec.rs","types.rs","write.rs"]};
+createSourceSidebar();

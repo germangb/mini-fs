@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ZipFs","Zip archive store."],["ZipFsFile","Entry in the Zip archive."]]});

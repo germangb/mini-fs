@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Store","Generic file storage."],["StoreExt","Convenient methods on top of Store."]]});

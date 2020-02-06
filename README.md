@@ -14,7 +14,7 @@ Supports reading from both the native filesystem, as well as Tar & Zip archives.
 mini-fs = "0.2"
 ```
 
-An example showcasing the API:
+Example:
 
 ```rust
 use mini_fs::prelude::*;
@@ -35,12 +35,7 @@ let file = fs.open("/data/example.gif")?;
 
 ## Overlay filesystem
 
-You can merge multiple file systems so they share the same mount point using a tuple. This allows you to override files between locations.
-
-Example use cases:
-
-* Config files with default fallbacks.
-* Replacing the assets from a game (modding).
+You can merge multiple file systems so they share the same mount point using a tuple.
 
 ```rust
 let a = LocalFs::new("data/");
@@ -55,63 +50,6 @@ let files = MiniFs::new().mount("/files", (a, b));
 assert!(files.open("/files/example.txt").is_ok()); // this "example.txt" is from "a"
 assert!(files.open("/files/hello.txt").is_ok());
 ```
-
-Note that if you tried to first mount `a`, followed by `b` under the same mount point, the first one would be shadowed by `b`.
-
-## Extensible
-
-It is possible to define a new file store so you can read files from an archive format that is not directly supported by this crate.
-
-You'll need to:
-
-1. Define two types: the store itselt, and the type of file that it returns.
-2. Implement the `Store` trait on the first type, and `UserFile` on the second.
-
----
-
-For example, say you want to implement a file store (`MyZip`) based on a Zip archive (this crate already has an implementation, but let's say you want to improve it).
-
-First, define types for both the Storage and the File that it will return.
-```rust
-use std::io;
-use mini_fs::{Store, UserFile};
-
-// This is the filesystem that will be mounted.
-struct MyZip { /*...*/ }
-
-// This example MyZip implementatin will return a slice of bytes for each
-// entry in the archive. It is wrapped in a Cursor to enable IO later.
-struct MyZipEntry(io::Cursor<Box<[u8]>>);
-
-impl UserFile for MyZipEntry {}
-```
-
-Implement IO on `MyZipEntry`.
-
-```rust
-impl io::Read for MyZipEntry {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.read(buf)
-    }
-}
-
-impl io::Seek for MyZipEntry { /* skipped */ }
-```
-
-And Finally, implement the `Store` trait on `MyZip`
-
-```rust
-impl Store for MyZip {
-    type File = MyZipEntry;
-    
-    fn open_path(&self, path: &Path) -> io::Result<MyZipEntry> {
-        // Fetch file
-        // ...
-    }
-}
-```
-
-And that is all. Now you can mount `MyZip` and/or use it as part of a tuple.
 
 ## License
 
